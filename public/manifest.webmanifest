@@ -1,0 +1,15 @@
+{
+  "name": "Counter-Strike · Dust II Online",
+  "short_name": "CS Dust Online",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
+  "orientation": "landscape",
+  "background_color": "#1a140e",
+  "theme_color": "#1a140e",
+  "icons": []
+}

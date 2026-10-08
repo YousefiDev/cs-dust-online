@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#1a140e" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<title>Counter-Strike · Dust II Online</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@500;700;800;900&family=Martian+Mono:wght@400;600;800&family=Vazirmatn:wght@400;600;800&display=swap" media="print" onload="this.media='all'" />
+<link rel="stylesheet" href="/css/style.css" />
+<script type="importmap">{ "imports": { "three": "/vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<canvas id="view" tabindex="-1" aria-label="Game view"></canvas>
+<!-- ================= MOBILE START GATE ================= -->
+<section id="gate" hidden>
+  <div class="gate-in">
+    <div class="gate-kicker">COUNTER-STRIKE · ONLINE</div>
+    <button id="gate-btn" class="gate-btn"><span>ورود به بازی</span><small>تمام‌صفحه · افقی</small></button>
+    <p id="gate-sub">با زدن دکمه، بازی تمام‌صفحه می‌شود</p>
+  </div>
+</section>
+<div id="flashed" aria-hidden="true"></div>
+
+<!-- ================= LOBBY ================= -->
+<section id="lobby" class="screen">
+  <header class="brand">
+    <div class="brand-kicker">COUNTER-STRIKE</div>
+    <h1 class="brand-title" id="brand-map">DUST&nbsp;II</h1>
+    <div class="brand-sub"><span>ONLINE</span><i></i><span id="net-status" class="status">در حال اتصال…</span></div>
+  </header>
+
+  <div class="lobby-grid">
+    <div class="col col-play">
+      <label class="field">
+        <span>نام بازیکن</span>
+        <input id="name" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Player" dir="ltr" />
+      </label>
+      <div class="map-picker">
+        <div class="picker-label">نقشهٔ تمرین</div>
+        <div class="seg maps" data-name="map">
+          <button data-v="dust2"><b>DUST II</b><small>کلاسیک</small></button>
+          <button data-v="mirage"><b>MIRAGE</b><small>کاخ و کانکتور</small></button>
+          <button data-v="inferno"><b>INFERNO</b><small>بنانا</small></button>
+        </div>
+      </div>
+
+      <div class="panel server-lock">
+        <h2>سرورهای رسمی</h2>
+        <p>ساخت سرور فقط توسط ادمین انجام می‌شود. از لیست سمت راست یک سرور فعال را انتخاب کن.</p>
+        <div class="server-lock-badge">COMMUNITY SERVERS · ADMIN CONTROLLED</div>
+      </div>
+      <button id="btn-offline" class="ghost">تمرین آفلاین با بات‌ها <small>فقط Practice</small></button>
+    </div>
+
+    <div class="col col-browse">
+      <div class="panel browser">
+        <div class="browser-head">
+          <h2>سرورهای آنلاین</h2>
+          <div class="join-code">
+            <input id="code" maxlength="4" placeholder="کد" dir="ltr" autocomplete="off" />
+            <button id="btn-join">ورود</button>
+          </div>
+        </div>
+        <div id="rooms" class="rooms"><div class="empty">هنوز سروری ساخته نشده. اولین نفر باش.</div></div>
+      </div>
+      <div class="controls-card" dir="ltr">
+        <div><kbd>WASD</kbd> move</div><div><kbd>Space</kbd> jump</div><div><kbd>C / Ctrl</kbd> crouch</div><div><kbd>Shift</kbd> walk</div>
+        <div><kbd>B</kbd> buy</div><div><kbd>R</kbd> reload</div><div><kbd>E</kbd> plant / defuse</div><div><kbd>G</kbd> drop</div>
+        <div><kbd>1-5</kbd> weapons</div><div><kbd>Tab</kbd> score</div><div><kbd>Y</kbd>/<kbd>U</kbd> chat</div><div><kbd>RMB</kbd> scope</div>
+      </div>
+    </div>
+  </div>
+  <button id="btn-settings" class="corner" title="تنظیمات">⚙ تنظیمات</button>
+  <button id="btn-uiedit" class="corner corner-2 touch-only" title="UI Editor">✥ UI Editor</button>
+</section>
+
+<!-- ================= TEAM SELECT ================= -->
+<section id="teamsel" class="screen overlay" hidden>
+  <div class="team-wrap">
+    <div class="team-head"><h2>انتخاب تیم</h2><span id="ts-room" dir="ltr"></span></div>
+    <div class="team-cards">
+      <button class="team-card t" data-team="T">
+        <span class="tc-badge">T</span>
+        <span class="tc-name" dir="ltr">TERRORISTS</span>
+        <span class="tc-fa">تروریست‌ها · کاشتن بمب</span>
+        <span class="tc-count" id="ts-T">—</span>
+      </button>
+      <button class="team-card ct" data-team="CT">
+        <span class="tc-badge">CT</span>
+        <span class="tc-name" dir="ltr">COUNTER-TERRORISTS</span>
+        <span class="tc-fa">ضدتروریست‌ها · دفاع از سایت‌ها</span>
+        <span class="tc-count" id="ts-CT">—</span>
+      </button>
+    </div>
+    <div class="team-foot">
+      <button data-team="AUTO" class="ghost small">انتخاب خودکار</button>
+      <button data-team="SPEC" class="ghost small">تماشاگر</button>
+      <button id="ts-leave" class="ghost small danger">خروج</button>
+    </div>
+    <p id="ts-err" class="err" hidden></p>
+  </div>
+</section>
+
+<!-- ================= HUD ================= -->
+<section id="hud" hidden dir="ltr">
+  <canvas id="radar" width="240" height="240"></canvas>
+  <div id="loc"></div>
+  <div id="topbar">
+    <div class="tb-team ct"><b id="sc-ct">0</b><div class="alive" id="al-ct"></div></div>
+    <div class="tb-mid"><div id="timer">1:55</div><div id="round-no">ROUND 1</div><div id="bomb-ind" hidden>●</div></div>
+    <div class="tb-team t"><div class="alive" id="al-t"></div><b id="sc-t">0</b></div>
+  </div>
+  <div id="killfeed"></div>
+  <div id="money"><span>$</span><b id="money-v">800</b><em id="money-d"></em></div>
+  <div id="buyzone" hidden>B · BUY</div>
+  <div id="hpbox"><div class="hp"><i class="ico-plus"></i><b id="hp-v">100</b></div><div class="ar"><i class="ico-shield"></i><b id="ar-v">0</b><small id="hm"></small></div></div>
+  <div id="ammo"><span id="wname">USP-S</span><b id="mag">12</b><small id="res">/ 24</small></div>
+  <div id="slots"></div>
+  <div id="crosshair"><i class="l"></i><i class="r"></i><i class="u"></i><i class="d"></i><i class="dot"></i></div>
+  <div id="hitmark"><i></i><i></i><i></i><i></i></div>
+  <div id="dmgdir"></div>
+  <div id="vignette"></div>
+  <div id="center"><div id="center-t"></div><div id="center-s"></div></div>
+  <div id="progress" hidden><span id="prog-l"></span><div><i id="prog-b"></i></div></div>
+  <div id="chat"><div id="chat-log"></div><div class="chat-compose"><input id="chat-in" maxlength="120" autocomplete="off" hidden /><button id="chat-send" type="button" hidden aria-label="ارسال پیام">➤</button></div></div>
+  <div id="spec" hidden><span class="spec-l">SPECTATING</span><b id="spec-n"></b><span id="spec-h"></span><small>Space / Click: next player · V: camera</small></div>
+  <div id="death" hidden><div class="death-k">Killed by <b id="death-k"></b></div><div id="death-w"></div></div>
+  <div id="scope" hidden><div class="ring"></div></div>
+  <div id="toast"></div>
+  <div id="rankhud" hidden><b id="rank-tag">R1</b><span id="rank-name">Recruit</span><small id="rank-xp">0 XP</small></div></div>
+  <div id="buymenu" hidden></div>
+  <div id="scoreboard" hidden></div>
+  <div id="pause" hidden dir="rtl">
+    <div class="pause-card">
+      <h2>توقف</h2>
+      <div class="pause-status">بازی متوقف شد</div><button id="p-resume" class="cta">ادامهٔ بازی</button>
+      <button id="p-team" class="ghost">تغییر تیم</button>
+      <button id="p-settings" class="ghost">تنظیمات و کنترل‌ها</button>
+      <button id="p-uiedit" class="ghost touch-only">✥ UI Editor · جابه‌جایی دکمه‌ها</button>
+      <button id="p-leave" class="ghost danger">خروج از سرور</button>
+      <p class="pause-code" id="p-code" dir="ltr"></p>
+    </div>
+  </div>
+  <div id="clickplay" hidden>کلیک کن تا وارد بازی بشی</div>
+  <div id="mobile-hint" hidden>بازی در حالت افقی اجرا می‌شود</div>
+</section>
+
+<!-- ================= SETTINGS ================= -->
+<section id="settings" class="screen overlay" hidden>
+  <div class="panel settings-card">
+    <div class="settings-head">
+      <h2>تنظیمات</h2>
+      <button id="s-x" class="settings-close" type="button" aria-label="بستن تنظیمات" title="بستن">×</button>
+    </div>
+    <label class="range"><span>حساسیت موس</span><input type="range" id="s-sens" min="0.2" max="4" step="0.05" /><b id="s-sens-v"></b></label>
+    <label class="range"><span>زاویه دید (FOV)</span><input type="range" id="s-fov" min="60" max="100" step="1" /><b id="s-fov-v"></b></label>
+    <label class="range"><span>صدا</span><input type="range" id="s-vol" min="0" max="1" step="0.05" /><b id="s-vol-v"></b></label>
+    <label class="range"><span>اندازهٔ نشانه</span><input type="range" id="s-ch" min="1" max="10" step="1" /><b id="s-ch-v"></b></label>
+    <div class="seg" data-name="chcolor"><button data-v="#3cff6f">سبز</button><button data-v="#00e5ff">آبی</button><button data-v="#ffe14d">زرد</button><button data-v="#ff4fd8">صورتی</button><button data-v="#ffffff">سفید</button></div>
+    <div class="seg" data-name="quality"><button data-v="high">بالا · CS Style</button><button data-v="medium">متوسط</button><button data-v="low">سریع · ضعیف</button></div><div class="quality-note">بالا: جزئیات کامل، سایه‌های دقیق، بافت برجسته و دید بیشتر. سریع: بدون سایه برای فریم‌ریت پایدار روی گوشی.</div>
+    <div class="seg" data-name="radio"><button data-v="on">صدای رادیو</button><button data-v="off">بدون رادیو</button></div>
+    <div class="settings-section">
+      <h3>موبایل و لمس</h3>
+      <label class="check"><input type="checkbox" id="s-gyro" /><span>ژیروسکوپ برای چرخاندن دوربین</span></label>
+      <label class="range"><span>حساسیت لمس</span><input type="range" id="s-touch-sens" min="0.4" max="3" step="0.05" /><b id="s-touch-sens-v"></b></label>
+      <div class="settings-actions"><button id="s-layout" class="ghost">✥ UI Editor · چیدمان دکمه‌ها</button></div>
+    </div>
+    <div class="settings-actions settings-bottom">
+      <button id="s-dismiss" class="ghost" type="button">بستن</button>
+      <button id="s-close" class="cta" type="button">ذخیره و بستن</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= TOUCH ================= -->
+<section id="touch" hidden dir="ltr">
+  <div id="t-look"></div>
+  <div id="t-stick" class="tc"><i></i></div>
+  <button id="t-fire" class="tb big tc knife-primary">LMB</button>
+  <button id="t-fire2" class="tb big tc knife-secondary">RMB</button>
+  <button id="t-jump" class="tb tc">JUMP</button>
+  <button id="t-crouch" class="tb tc">DUCK</button>
+  <button id="t-reload" class="tb tc">R</button>
+  <button id="t-use" class="tb tc">E</button>
+  <button id="t-scope" class="tb tc">◎</button>
+  <button id="t-nade" class="tb tc">NADE</button>
+  <button id="t-more" class="tb tc" aria-label="ابزارهای بیشتر">•••</button>
+  <button id="t-buy" class="tb tc" aria-label="خرید">$</button>
+  <button id="t-score" class="tb tc" aria-label="جدول امتیاز">☰</button>
+  <button id="t-chat" class="tb tc" aria-label="چت">•••</button>
+  <div id="t-utility" class="t-utility" hidden>
+    <button id="t-next" class="tb tc" aria-label="تعویض اسلحه">⇄</button>
+    <button id="t-drop" class="tb tc" aria-label="انداختن">↓</button>
+  </div>
+  <button id="t-pause" class="tb tc pause-touch" aria-label="منوی توقف">Ⅱ</button>
+</section>
+
+<!-- ================= UI EDITOR ================= -->
+<section id="ui-editor" hidden>
+  <div class="ue-head"><b>UI EDITOR</b><span id="ue-name">—</span></div>
+  <div class="ue-row">
+    <label>اندازه <input type="range" id="ue-size" min="0.6" max="1.8" step="0.05" /><b id="ue-size-v"></b></label>
+    <label>شفافیت <input type="range" id="ue-opacity" min="0.2" max="1" step="0.05" /><b id="ue-opacity-v"></b></label>
+  </div>
+  <div class="ue-row ue-btns">
+    <button id="ue-hide">مخفی کردن</button><button id="ue-snap">چسبیدن به شبکه</button><button id="ue-reset">پیش‌فرض</button>
+    <button id="ue-cancel" class="ghost">لغو</button><button id="ue-save" class="cta">ذخیره</button>
+  </div>
+  <p class="ue-tip">هر دکمه را بکش تا جابه‌جا شود · برای تنظیم اندازه، اول رویش بزن</p>
+</section>
+
+<!-- ================= RECONNECT ================= -->
+<section id="reconnect" hidden><div><b>اتصال قطع شد</b><span>در حال اتصال دوباره به همان سرور…</span><button id="rc-leave" class="ghost small">برگشت به لابی</button></div></section>
+
+<div id="loading" class="screen"><div class="load-in"><b>DUST II</b><span>در حال ساختن نقشه…</span></div></div>
+<script src="/socket.io/socket.io.js"></script>
+<script type="module" src="/js/main.js"></script>
+</body>
+</html>

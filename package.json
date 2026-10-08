@@ -1,0 +1,21 @@
+{
+  "name": "cs-dust-online",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Counter-Strike style browser FPS with authoritative Socket.IO multiplayer and server bots",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "cf:login": "wrangler login"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "wrangler": "^4.40.0"
+  }
+}

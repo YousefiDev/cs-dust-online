@@ -1,0 +1,19 @@
+name = "cs-dust-online"
+main = "worker.js"
+compatibility_date = "2026-10-08"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[vars]
+DEFAULT_SERVERS = "1"
+
+[durable_objects]
+bindings = [
+  { name = "GAME", class_name = "GameServer" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GameServer"]
