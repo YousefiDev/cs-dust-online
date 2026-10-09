@@ -239,7 +239,7 @@ document.addEventListener('pointerlockchange', () => {
   // Losing pointer lock while the page is hidden is expected when switching to
   // another tab/window. Do not turn that into a gameplay pause; visibilitychange
   // restores the clock and input state when the player comes back.
-  if (!game.locked && !document.hidden && game.inRoom && !game.buyOpen && !game.chatOpen && $('teamsel').hidden && $('settings').hidden && !game.menuPaused && !touch) game.setMenuPaused(true);
+  if (!game.locked && !document.hidden && !mapEditor.active && game.inRoom && !game.buyOpen && !game.chatOpen && $('teamsel').hidden && $('settings').hidden && !game.menuPaused && !touch) game.setMenuPaused(true);
   if (game.locked) { $('pause').hidden = true; canvas.focus({ preventScroll: true }); }
 });
 addEventListener('blur', () => { game.keys = {}; game.mouseL = false; game.mouseR = false; });
@@ -377,16 +377,16 @@ function edHit(e) {
 }
 function edToggle(force) {
   mapEditor.active = force == null ? !mapEditor.active : !!force; editorUI.style.display = mapEditor.active ? 'block' : 'none'; document.body.classList.toggle('editor-active',mapEditor.active);
-  if (mapEditor.active) { if (document.pointerLockElement) document.exitPointerLock(); game.locked=false; mapEditor.yaw=camera.rotation.y; mapEditor.pitch=camera.rotation.x; mapEditor.pitch=Math.max(-1.35,Math.min(1.35,mapEditor.pitch)); mapEditor.keys={}; edStatus('حالت ادیت فعال · مپ زنده بازی'); }
-  else { mapEditor.keys={}; edStatus(mapEditor.dirty ? 'ادیتور بسته شد؛ تغییرات در خروجی JSON ذخیره می‌شوند' : 'به حالت بازی برگشتی'); }
+  if (mapEditor.active) { window.__mapEditorActive = true; game.keys = {}; game.mouseL = false; game.mouseR = false; game.s.crouch = false; game.menuPaused = false; $('pause').hidden = true; if (document.pointerLockElement) document.exitPointerLock(); game.locked=false; mapEditor.yaw=camera.rotation.y; mapEditor.pitch=camera.rotation.x; mapEditor.pitch=Math.max(-1.35,Math.min(1.35,mapEditor.pitch)); mapEditor.keys={}; edStatus('حالت ادیت فعال · مپ زنده بازی'); }
+  else { window.__mapEditorActive = false; mapEditor.keys={}; game.keys = {}; game.menuPaused = false; $('pause').hidden = true; edStatus(mapEditor.dirty ? 'ادیتور بسته شد؛ تغییرات در خروجی JSON ذخیره می‌شوند' : 'به حالت بازی برگشتی'); }
 }
 editorUI.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click',()=>edSetTool(b.dataset.tool)));
 document.getElementById('ed-close').addEventListener('click',()=>edToggle(false));
 document.getElementById('ed-reset-view').addEventListener('click',()=>{camera.position.set(game.s.x,Math.max(8,game.s.y+8),game.s.z+12);mapEditor.yaw=0;mapEditor.pitch=-0.45;edStatus('دوربین به بازیکن منتقل شد');});
 document.getElementById('ed-save').addEventListener('click',()=>{ const payload=JSON.stringify(game.map.def,null,2); localStorage.setItem('cs-map-edit-'+game.map.id,payload); const blob=new Blob([payload],{type:'application/json'}); const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=game.map.id+'-edited.json';a.click();URL.revokeObjectURL(a.href);mapEditor.dirty=false;edStatus('خروجی JSON دانلود شد. برای اعمال روی همه بازیکنان باید این تعریف به سرور/مخزن مپ اضافه شود.'); });
 document.getElementById('ed-download').addEventListener('click',()=>document.getElementById('ed-save').click());
-addEventListener('keydown',e=>{if(e.code==='F6'){e.preventDefault();edToggle();return;}if(!mapEditor.active)return;if(['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE','ShiftLeft','ShiftRight'].includes(e.code)){mapEditor.keys[e.code]=true;e.preventDefault();}},{capture:true});
-addEventListener('keyup',e=>{if(mapEditor.active)mapEditor.keys[e.code]=false;},{capture:true});
+addEventListener('keydown',e=>{if(e.code==='F6'){e.preventDefault();e.stopImmediatePropagation();edToggle();return;}if(!mapEditor.active)return;if(['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE','ShiftLeft','ShiftRight'].includes(e.code)){mapEditor.keys[e.code]=true;e.preventDefault();}e.stopImmediatePropagation();},{capture:true});
+addEventListener('keyup',e=>{if(mapEditor.active){mapEditor.keys[e.code]=false;e.preventDefault();e.stopImmediatePropagation();}},{capture:true});
 canvas.addEventListener('click',e=>{if(!mapEditor.active)return;e.preventDefault();e.stopImmediatePropagation();const p=edHit(e);if(p)edCell(p,mapEditor.tool);},true);
 canvas.addEventListener('mousedown',e=>{if(mapEditor.active){e.preventDefault();e.stopImmediatePropagation();}},true);
 addEventListener('mousemove',e=>{if(!mapEditor.active||e.buttons!==2)return;mapEditor.yaw-=e.movementX*0.003;mapEditor.pitch=Math.max(-1.35,Math.min(1.35,mapEditor.pitch-e.movementY*0.003));});
