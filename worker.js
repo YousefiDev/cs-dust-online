@@ -195,6 +195,29 @@ export class GameServer {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const headers = {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'GET,POST,OPTIONS',
+      'access-control-allow-headers': 'content-type'
+    };
+
+    // These lightweight endpoints are handled directly by the Worker. This makes
+    // deployment/routing diagnosable without depending on the Durable Object API router.
+    if (url.pathname === '/api/maps/health') {
+      return Response.json({ ok: true, service: 'cs-dust-online', route: 'worker-api', authConfigured: !!env.ADMIN_KEY }, { headers });
+    }
+    if (url.pathname === '/api/maps/auth') {
+      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
+      if (request.method !== 'POST') return Response.json({ ok: false, error: 'method_not_allowed' }, { status: 405, headers });
+      let body;
+      try { body = await request.json(); }
+      catch { return Response.json({ ok: false, error: 'invalid_json' }, { status: 400, headers }); }
+      const ok = !!env.ADMIN_KEY && typeof body.key === 'string' && body.key === env.ADMIN_KEY;
+      return Response.json({ ok, error: ok ? null : 'unauthorized' }, { status: ok ? 200 : 401, headers });
+    }
+
     if (url.pathname === '/ws' || url.pathname === '/editor-ws' || url.pathname === '/api/maps' || url.pathname.startsWith('/api/maps/')) {
       const id = env.GAME.idFromName('global');
       return env.GAME.get(id).fetch(request);
