@@ -189,9 +189,11 @@ export class GameServer {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    // Route game WebSocket, Map Editor APIs, and editor collaboration WebSocket
-    // to the Durable Object. Without these routes, requests fall through to static assets.
-    if (url.pathname === '/ws' || url.pathname.startsWith('/api/maps') || url.pathname === '/editor-ws') {
+    // Route all map-editor API and collaboration WebSocket requests to the
+    // same Durable Object instance that owns the shared map storage.
+    if (url.pathname === '/ws' ||
+        url.pathname.startsWith('/api/maps/') ||
+        url.pathname === '/editor-ws') {
       const id = env.GAME.idFromName('global');
       return env.GAME.get(id).fetch(request);
     }
