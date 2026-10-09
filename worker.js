@@ -195,7 +195,7 @@ export class GameServer {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname === '/ws' || url.pathname === '/editor-ws' || url.pathname.startsWith('/api/maps/')) {
+    if (url.pathname === '/ws' || url.pathname === '/editor-ws' || url.pathname === '/api/maps' || url.pathname.startsWith('/api/maps/')) {
       const id = env.GAME.idFromName('global');
       return env.GAME.get(id).fetch(request);
     }
