@@ -1,4 +1,5 @@
 import { ServerCore } from './shared/core.js';
+import { MAP_DEFS } from './public/shared/maps.js';
 
 const DEFAULT_SERVERS = [
   { title: 'Dust II · Public', map: 'dust2', bots: 'fill', difficulty: 'normal', max: 10 },
@@ -24,6 +25,8 @@ export class GameServer {
     this.env = env;
     this.sockets = new Map();
     this.editorSockets = new Set();
+    this.customMaps = {};
+    this.editorReady = this.state.storage.get('customMaps').then(v => { this.customMaps = v || {}; });
     this.readyDone = false;
     this.core = new ServerCore();
     this.core.onSaveData = (data) => this.state.storage.put('data', structuredClone(data));
@@ -56,53 +59,16 @@ export class GameServer {
   async fetch(request) {
     await this.ready;
     const url = new URL(request.url);
-    if (url.pathname === '/api/maps/custom' && request.method === 'GET') {
-      const maps = await this.state.storage.get('editorMaps') || {};
-      return Response.json(Object.values(maps));
-    }
-    if (url.pathname === '/api/maps/save' && request.method === 'POST') {
-      let body;
-      try { body = await request.json(); } catch { return Response.json({ok:false,error:'invalid_json'}, {status:400}); }
-      const def = body?.map;
-      if (!def || !/^[a-z0-9_-]{2,40}$/.test(String(def.id || '')) || !Array.isArray(def.areas) || !Array.isArray(def.crates) || !def.spawns) {
-        return Response.json({ok:false,error:'invalid_map_definition'}, {status:400});
-      }
-      const maps = await this.state.storage.get('editorMaps') || {};
-      maps[def.id] = structuredClone(def);
-      await this.state.storage.put('editorMaps', maps);
-      const packet = JSON.stringify({type:'map-saved', map:def, by: body.by || 'editor'});
-      for (const ws of this.editorSockets) { try { if (ws.readyState === WebSocket.OPEN) ws.send(packet); } catch {} }
-      return Response.json({ok:true, map:def});
-    }
-    if (url.pathname !== '/editor-ws' || request.headers.get('Upgrade') !== 'websocket') {
-      if (url.pathname !== '/ws' || request.headers.get('Upgrade') !== 'websocket') return new Response('Not found', { status: 404 });
+    if (url.pathname.startsWith('/api/maps')) return this.handleMapsApi(request, url);
+    if (url.pathname === '/editor-ws' && request.headers.get('Upgrade') === 'websocket') return this.editorWebSocket(request);
+    if (url.pathname !== '/ws' || request.headers.get('Upgrade') !== 'websocket') {
+      return new Response('WebSocket endpoint', { status: 426 });
     }
 
     const pair = new WebSocketPair();
     const client = pair[0];
     const server = pair[1];
     server.accept();
-    if (url.pathname === '/editor-ws') {
-      this.editorSockets.add(server);
-      server.addEventListener('message', async event => {
-        let packet;
-        try { packet = JSON.parse(event.data); } catch { return; }
-        if (packet.type === 'hello') {
-          const maps = await this.state.storage.get('editorMaps') || {};
-          try { server.send(JSON.stringify({type:'hello', maps:Object.values(maps)})); } catch {}
-        } else if (packet.type === 'edit' && packet.map && packet.map.id) {
-          const maps = await this.state.storage.get('editorMaps') || {};
-          maps[packet.map.id] = structuredClone(packet.map);
-          await this.state.storage.put('editorMaps', maps);
-          const out = JSON.stringify({type:'edit', map:packet.map, by:packet.by || 'editor'});
-          for (const ws of this.editorSockets) if (ws !== server) { try { if (ws.readyState === WebSocket.OPEN) ws.send(out); } catch {} }
-        }
-      });
-      const cleanup = () => this.editorSockets.delete(server);
-      server.addEventListener('close', cleanup);
-      server.addEventListener('error', cleanup);
-      return new Response(null, { status: 101, webSocket: client });
-    }
 
     const id = crypto.randomUUID();
     const ip = request.headers.get('CF-Connecting-IP') || '';
@@ -118,6 +84,56 @@ export class GameServer {
 
     return new Response(null, { status: 101, webSocket: client });
   }
+
+
+  async handleMapsApi(request, url) {
+    await this.editorReady;
+    const headers = { 'content-type': 'application/json; charset=utf-8', 'access-control-allow-origin': '*', 'cache-control': 'no-store' };
+    if (request.method === 'OPTIONS') return new Response(null, { headers: { ...headers, 'access-control-allow-methods': 'GET,POST,OPTIONS', 'access-control-allow-headers': 'content-type' } });
+    if (url.pathname === '/api/maps/auth' && request.method === 'POST') {
+      let body; try { body = await request.json(); } catch { return Response.json({ ok:false, error:'invalid_json' }, { status:400, headers }); }
+      const ok = !!this.env.ADMIN_KEY && typeof body.key === 'string' && body.key === this.env.ADMIN_KEY;
+      return Response.json({ ok, error: ok ? null : 'unauthorized' }, { status: ok ? 200 : 401, headers });
+    }
+    if (url.pathname === '/api/maps/definitions' && request.method === 'GET') return new Response(JSON.stringify(MAP_DEFS), { headers });
+    if (url.pathname === '/api/maps/custom' && request.method === 'GET') return new Response(JSON.stringify(this.customMaps), { headers });
+    if (url.pathname === '/api/maps/save' && request.method === 'POST') {
+      let body; try { body = await request.json(); } catch { return Response.json({ ok:false, error:'invalid_json' }, { status:400, headers }); }
+      if (!this.env.ADMIN_KEY || body.key !== this.env.ADMIN_KEY) return Response.json({ ok:false, error:'unauthorized' }, { status:401, headers });
+      if (!body.maps || typeof body.maps !== 'object' || Array.isArray(body.maps)) return Response.json({ ok:false, error:'invalid_maps' }, { status:400, headers });
+      const clean = {};
+      for (const [id, def] of Object.entries(body.maps)) {
+        if (!/^[a-z0-9_-]{2,32}$/.test(id) || !def || typeof def !== 'object' || def.id !== id || !Array.isArray(def.size) || !Array.isArray(def.areas) || !Array.isArray(def.crates)) return Response.json({ ok:false, error:'invalid_map:' + id }, { status:400, headers });
+        clean[id] = def;
+      }
+      this.customMaps = clean; await this.state.storage.put('customMaps', clean);
+      this.broadcastEditor({ type:'maps-updated', maps: clean });
+      return Response.json({ ok:true, count:Object.keys(clean).length }, { headers });
+    }
+    return Response.json({ ok:false, error:'not_found' }, { status:404, headers });
+  }
+
+  async editorWebSocket(request) {
+    const pair = new WebSocketPair(); const client = pair[0], server = pair[1]; server.accept();
+    const peer = { ws: server, id: crypto.randomUUID(), name: 'Player' + Math.floor(Math.random()*900+100) };
+    this.editorSockets.add(peer);
+    server.send(JSON.stringify({ type:'hello', id:peer.id, maps:this.customMaps, baseMaps:MAP_DEFS, peers:[...this.editorSockets].map(p=>({id:p.id,name:p.name})) }));
+    this.broadcastEditor({ type:'peer-joined', peer:{id:peer.id,name:peer.name} }, peer);
+    server.addEventListener('message', async e => {
+      try {
+        const m=JSON.parse(e.data);
+        if (m.type==='join') { peer.name=String(m.name||peer.name).slice(0,24); this.broadcastEditor({type:'peer-name',peer:{id:peer.id,name:peer.name}}); }
+        else if (m.type==='edit' && m.mapId && m.object) this.broadcastEditor({type:'edit', mapId:m.mapId, object:m.object, from:peer.id}, peer);
+        else if (m.type==='live-map' && /^[a-z0-9_-]{2,32}$/.test(String(m.mapId||'')) && m.map && typeof m.map==='object' && m.map.id===m.mapId && Array.isArray(m.map.size) && Array.isArray(m.map.areas) && Array.isArray(m.map.crates)) this.broadcastEditor({type:'live-map',mapId:m.mapId,map:m.map,from:peer.id},peer);
+        else if (m.type==='cursor') this.broadcastEditor({type:'cursor',from:peer.id,position:m.position},peer);
+        else if (m.type==='snapshot-request') server.send(JSON.stringify({type:'snapshot',maps:this.customMaps,baseMaps:MAP_DEFS}));
+      } catch {}
+    });
+    const close=()=>{this.editorSockets.delete(peer);this.broadcastEditor({type:'peer-left',id:peer.id});};
+    server.addEventListener('close',close); server.addEventListener('error',close);
+    return new Response(null,{status:101,webSocket:client});
+  }
+  broadcastEditor(message, except=null) { const raw=JSON.stringify(message); for(const p of this.editorSockets) if(p!==except && p.ws.readyState===WebSocket.OPEN) try{p.ws.send(raw)}catch{} }
 
   async onMessage(conn, raw) {
     await this.ready;
