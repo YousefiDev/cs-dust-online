@@ -7,7 +7,7 @@
 <div class="wrap"><div class="top"><div><div class="brand">🗺️ MAP EDITOR <span style="color:var(--gold)">ONLINE</span></div><div class="muted">ویرایش نقشه‌های بازی · ساخت نقشه‌ی جدید · ذخیره روی سرور</div></div><div class="status" id="status">● آماده‌سازی…</div></div>
 <div class="layout"><aside class="panel"><div class="heading">نقشه‌ها</div><div id="maps" class="maps"></div><div class="actions" style="margin-top:12px"><button id="new" class="primary">＋ نقشه‌ی جدید</button><button id="reload">بارگذاری مجدد</button></div><div class="notice">همکاری زنده از طریق WebSocket؛ همه باید همین آدرس را باز کنند. تغییرات ذخیره‌شده برای همه ارسال می‌شوند. بارگذاری نقشه‌ی سفارشی در موتور بازی نیازمند اتصال loader بازی است.</div></aside>
 <main class="panel"><div class="actions"><button id="preview">به‌روزرسانی پیش‌نمایش</button><button id="save" class="primary">ذخیره‌ی همه‌ی تغییرات</button><button id="export">خروجی JSON</button><label style="padding:9px;border:1px solid var(--line);border-radius:8px;cursor:pointer">ورود JSON<input id="import" type="file" accept=".json,application/json" hidden></label></div>
-<div class="field"><label for="mapname">نام نقشه</label><input id="mapname" placeholder="نام نقشه"></div><div class="workspace"><section><div class="heading">پیش‌نمایش چیدمان</div><div class="preview"><canvas id="canvas" width="512" height="512"></canvas></div><div class="heading" style="margin-top:14px">نمای سه‌بعدی تعاملی</div><div class="preview"><canvas id="view3d" style="width:100%;height:320px;aspect-ratio:auto;display:block"></canvas></div><div class="muted">با ماوس بچرخان و زوم کن؛ اشیای سه‌بعدی از تعریف نقشه ساخته می‌شوند.</div><div class="muted">نمایش تقریبی ناحیه‌ها و موانع؛ مختصات در تعریف نقشه ذخیره می‌شوند.</div></section><section><div class="heading">تعریف نقشه (JSON)</div><textarea id="json" class="editor" spellcheck="false"></textarea><div class="muted">فیلدهای areas، ramps، crates، spawns، sites و routes را می‌توانی ویرایش کنی.</div></section></div><p id="message" class="muted"></p></main></div></div>
+<div class="field"><label for="mapname">نام نقشه</label><input id="mapname" placeholder="نام نقشه"></div><div class="workspace"><section><div class="heading">پیش‌نمایش چیدمان</div><div class="preview"><canvas id="canvas" width="512" height="512"></canvas></div><div class="heading" style="margin-top:14px">ادیتور سه‌بعدی</div><div class="actions" id="tools3d"><button id="move3d" class="primary">↔ جابه‌جایی</button><button id="rotate3d">⟳ چرخش</button><button id="scale3d">⤢ اندازه</button><button id="add3d">＋ افزودن مانع</button><button id="delete3d" class="danger">حذف انتخاب</button></div><div class="preview"><canvas id="view3d" style="width:100%;height:420px;aspect-ratio:auto;display:block"></canvas></div><div id="selected3d" class="muted">برای انتخاب یک مانع روی آن کلیک کن. با دستگیره‌ها جابه‌جا، بچرخان یا اندازه‌اش را تغییر بده.</div><div class="muted">نمایش تقریبی ناحیه‌ها و موانع؛ مختصات در تعریف نقشه ذخیره می‌شوند.</div></section><section><div class="heading">تعریف نقشه (JSON)</div><textarea id="json" class="editor" spellcheck="false"></textarea><div class="muted">فیلدهای areas، ramps، crates، spawns، sites و routes را می‌توانی ویرایش کنی.</div></section></div><p id="message" class="muted"></p></main></div></div>
 <script>
 const $=id=>document.getElementById(id);let defs={},current='',key='',editorSocket=null;
 function msg(t,ok=true){$('message').textContent=t;$('status').textContent=(ok?'● ':'● ')+t;$('status').style.color=ok?'var(--green)':'#ff7e88'}
@@ -31,17 +31,48 @@ $('reload').onclick=()=>load().catch(e=>msg(e.message,false));
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js';
-const canvas=document.getElementById('view3d'); if(canvas){
- const renderer=new THREE.WebGLRenderer({canvas,antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(canvas.clientWidth||460,320,false); renderer.setClearColor(0x0a111a);
- const scene=new THREE.Scene(); scene.background=new THREE.Color(0x0a111a); const camera=new THREE.PerspectiveCamera(50,1,.1,1000);camera.position.set(85,100,120);
+import { TransformControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/TransformControls.js';
+const canvas=document.getElementById('view3d');
+if(canvas){
+ const renderer=new THREE.WebGLRenderer({canvas,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(canvas.clientWidth||600,420,false);renderer.setClearColor(0x0a111a);
+ const scene=new THREE.Scene();scene.background=new THREE.Color(0x0a111a);
+ const camera=new THREE.PerspectiveCamera(50,1,.1,2000);camera.position.set(85,100,120);
  const controls=new OrbitControls(camera,canvas);controls.target.set(66,0,66);controls.enableDamping=true;
  scene.add(new THREE.HemisphereLight(0xc8e3ff,0x493b2b,2));const sun=new THREE.DirectionalLight(0xffffff,2.2);sun.position.set(40,100,50);scene.add(sun);
- const grid=new THREE.GridHelper(132,44,0x53677d,0x26394d);scene.add(grid);let group=new THREE.Group();scene.add(group);
- function rebuild(){while(group.children.length){const o=group.children.pop();o.geometry?.dispose();if(o.material&&!Array.isArray(o.material))o.material.dispose();}let d;try{d=JSON.parse(document.getElementById('json').value)}catch{return}if(!d)return;const [w,h]=d.size||[132,132];group.add(new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshStandardMaterial({color:d.theme?.floor||'#82745e',roughness:1}))).rotation.x=-Math.PI/2;
- for(const a of d.areas||[]){const [x,z,x2,z2,y=0,mat=1]=a;const mesh=new THREE.Mesh(new THREE.BoxGeometry(Math.max(.2,x2-x),.25,Math.max(.2,z2-z)),new THREE.MeshStandardMaterial({color:['#7c7468','#c5a77a','#8999a8','#6c8b8a','#997f9c'][mat%5]}));mesh.position.set((x+x2)/2,y+.12,(z+z2)/2);group.add(mesh)}
- for(const c of d.crates||[]){const [x,z,cw,cd,ch=1.3,kind='crate']=c;const mesh=new THREE.Mesh(new THREE.BoxGeometry(cw,ch,cd),new THREE.MeshStandardMaterial({color:kind==='cont'?'#b64e32':'#b88a4c'}));mesh.position.set(x+cw/2,ch/2,z+cd/2);group.add(mesh)}
- for(const team of ['T','CT'])for(const p of d.spawns?.[team]||[]){const mesh=new THREE.Mesh(new THREE.ConeGeometry(.7,2,8),new THREE.MeshStandardMaterial({color:team==='T'?'#ff625e':'#58aaff'}));mesh.position.set(p[0],1,p[1]);group.add(mesh)}
- controls.target.set(w/2,0,h/2);camera.position.set(w*.65,Math.max(w,h)*.8,h*.9);camera.aspect=(canvas.clientWidth||460)/320;camera.updateProjectionMatrix();}
- const resize=()=>{const w=canvas.clientWidth||460;renderer.setSize(w,320,false);camera.aspect=w/320;camera.updateProjectionMatrix()};window.addEventListener('resize',resize);document.getElementById('preview').addEventListener('click',rebuild);document.getElementById('json').addEventListener('input',()=>{clearTimeout(window._rebuild3d);window._rebuild3d=setTimeout(rebuild,250)});const oldSelect=window.select;setTimeout(rebuild,800);function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)}animate();
+ const grid=new THREE.GridHelper(256,64,0x53677d,0x26394d);scene.add(grid);
+ const group=new THREE.Group();scene.add(group);
+ const transform=new TransformControls(camera,renderer.domElement);scene.add(transform.getHelper());
+ const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();let selected=null,dragging=false,objectMeshes=[];
+ transform.addEventListener('dragging-changed',e=>{controls.enabled=!e.value;dragging=e.value});
+ function getData(){try{return JSON.parse(document.getElementById('json').value)}catch{return null}}
+ function setData(d,message='تغییر سه‌بعدی اعمال شد؛ برای ذخیره روی «ذخیره‌ی همه‌ی تغییرات» بزن'){document.getElementById('json').value=JSON.stringify(d,null,2);if(typeof draw==='function')draw(d);if(typeof defs!=='undefined'&&typeof current!=='undefined'&&current)defs[current]=d;if(typeof msg==='function')msg(message)}
+ function clearGroup(){transform.detach();selected=null;objectMeshes=[];while(group.children.length){const o=group.children[0];group.remove(o);o.traverse?.(n=>{n.geometry?.dispose();if(n.material){if(Array.isArray(n.material))n.material.forEach(m=>m.dispose());else n.material.dispose()}})}}
+ function tagged(mesh,kind,index){mesh.userData.mapKind=kind;mesh.userData.mapIndex=index;objectMeshes.push(mesh);group.add(mesh);return mesh}
+ function rebuild(){
+  const d=getData();if(!d)return;clearGroup();const [w,h]=d.size||[132,132];
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshStandardMaterial({color:d.theme?.floor||'#82745e',roughness:1}));floor.rotation.x=-Math.PI/2;floor.position.set(w/2,-.16,h/2);floor.userData.floor=true;group.add(floor);
+  (d.areas||[]).forEach((a,i)=>{const [x,z,x2,z2,y=0,mat=1]=a;const mesh=new THREE.Mesh(new THREE.BoxGeometry(Math.max(.2,x2-x),Math.max(.25,Math.abs(y)||.25),Math.max(.2,z2-z)),new THREE.MeshStandardMaterial({color:['#7c7468','#c5a77a','#8999a8','#6c8b8a','#997f9c'][mat%5]}));mesh.position.set((x+x2)/2,Math.max(.13,y/2), (z+z2)/2);mesh.userData.originalSize=[x2-x,Math.max(.25,Math.abs(y)||.25),z2-z];tagged(mesh,'areas',i)});
+  (d.crates||[]).forEach((c,i)=>{const [x,z,cw,cd,ch=1.3,kind='crate']=c;const mesh=new THREE.Mesh(new THREE.BoxGeometry(cw,ch,cd),new THREE.MeshStandardMaterial({color:kind==='cont'?'#b64e32':'#b88a4c'}));mesh.position.set(x+cw/2,ch/2,z+cd/2);tagged(mesh,'crates',i)});
+  for(const team of ['T','CT'])for(let i=0;i<(d.spawns?.[team]||[]).length;i++){const p=d.spawns[team][i];const mesh=new THREE.Mesh(new THREE.ConeGeometry(.7,2,8),new THREE.MeshStandardMaterial({color:team==='T'?'#ff625e':'#58aaff'}));mesh.position.set(p[0],1,p[1]);mesh.userData.mapKind='spawn:'+team;mesh.userData.mapIndex=i;objectMeshes.push(mesh);group.add(mesh)}
+  controls.target.set(w/2,0,h/2);if(!window._cameraFramed){camera.position.set(w*.65,Math.max(w,h)*.8,h*.9);window._cameraFramed=true}camera.aspect=(canvas.clientWidth||600)/420;camera.updateProjectionMatrix();
+ }
+ function selectObject(obj){selected=obj;transform.attach(obj);document.getElementById('selected3d').textContent='انتخاب: '+(obj.userData.mapKind||'شیء')+' #'+(obj.userData.mapIndex+1)+' — دستگیره‌ها را بکش تا تغییر کند.'}
+ function commitTransform(){
+  if(!selected)return;const d=getData();if(!d)return;const kind=selected.userData.mapKind,i=selected.userData.mapIndex,p=selected.position;
+  if(kind==='crates'&&d.crates?.[i]){const c=d.crates[i],sx=selected.scale.x,sy=selected.scale.y,sz=selected.scale.z;const geo=selected.geometry.parameters;d.crates[i]=[p.x-(geo.width*sx)/2,p.z-(geo.depth*sz)/2,geo.width*sx,geo.depth*sz,geo.height*sy,c[5]||'crate']}
+  else if(kind==='areas'&&d.areas?.[i]){const a=d.areas[i],geo=selected.geometry.parameters;const ww=geo.width*selected.scale.x,hh=geo.depth*selected.scale.z;d.areas[i]=[p.x-ww/2,p.z-hh/2,p.x+ww/2,p.z+hh/2,geo.height*selected.scale.y,a[5]||1]}
+  else if(kind?.startsWith('spawn:')){const team=kind.split(':')[1];if(d.spawns?.[team]?.[i])d.spawns[team][i]=[p.x,p.z]}
+  setData(d);document.getElementById('selected3d').textContent='تغییر اعمال شد؛ ذخیره را بزن تا برای دیگران ارسال شود.';
+ }
+ transform.addEventListener('objectChange',commitTransform);
+ canvas.addEventListener('pointerdown',e=>{if(dragging)return;const r=canvas.getBoundingClientRect();pointer.x=((e.clientX-r.left)/r.width)*2-1;pointer.y=-((e.clientY-r.top)/r.height)*2+1;raycaster.setFromCamera(pointer,camera);const hits=raycaster.intersectObjects(objectMeshes,false);if(hits.length)selectObject(hits[0].object)});
+ document.getElementById('move3d').onclick=()=>transform.setMode('translate');
+ document.getElementById('rotate3d').onclick=()=>transform.setMode('rotate');
+ document.getElementById('scale3d').onclick=()=>transform.setMode('scale');
+ document.getElementById('add3d').onclick=()=>{const d=getData();if(!d)return;d.crates=d.crates||[];const index=d.crates.length;d.crates.push([20+index*2,20,3,3,2,'crate']);setData(d,'مانع جدید اضافه شد؛ ذخیره را بزن.');rebuild();const o=objectMeshes.find(x=>x.userData.mapKind==='crates'&&x.userData.mapIndex===index);if(o)selectObject(o)};
+ document.getElementById('delete3d').onclick=()=>{if(!selected)return alert('اول یک مانع را انتخاب کن.');const d=getData(),kind=selected.userData.mapKind,i=selected.userData.mapIndex;if(kind==='crates')d.crates.splice(i,1);else if(kind==='areas')d.areas.splice(i,1);else if(kind?.startsWith('spawn:'))d.spawns[kind.split(':')[1]].splice(i,1);else return alert('این مورد قابل حذف نیست.');setData(d,'شیء حذف شد؛ برای ثبت روی سرور ذخیره کن.');rebuild()};
+ const resize=()=>{const w=canvas.clientWidth||600;renderer.setSize(w,420,false);camera.aspect=w/420;camera.updateProjectionMatrix()};window.addEventListener('resize',resize);
+ document.getElementById('preview').addEventListener('click',rebuild);document.getElementById('json').addEventListener('input',()=>{clearTimeout(window._rebuild3d);window._rebuild3d=setTimeout(rebuild,300)});
+ const oldSelect=window.select;setTimeout(rebuild,900);function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera)}animate();
 }
 </script></body></html>
