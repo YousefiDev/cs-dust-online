@@ -297,22 +297,6 @@ const BAZAAR = {"id": "bazaar", "name": "Bazaar", "size": [132, 132], "scale": 3
 const ARENA = {"id": "arena", "name": "Arena", "size": [132, 132], "scale": 3, "theme": {"sky": "#a9c4d8", "haze": "#b7bcc2", "sun": "#fff6e8", "wall": "#c7ccd2", "wall2": "#9aa1a8", "floor": "#aab0b6", "crate": "#d1a23a", "cont": "#3a6ea5"}, "areas": [[14, 3, 30, 10, 0.0, 2], [16, 10, 28, 20, 0.0, 2], [8, 12, 16, 16, 0.0, 2], [28, 12, 36, 16, 0.0, 2], [8, 16, 11, 34, 0.0, 2], [13, 16, 16, 34, 0.0, 2], [28, 16, 31, 34, 0.0, 2], [33, 16, 36, 34, 0.0, 2], [11, 18, 13, 28, 0.0, 2], [31, 18, 33, 28, 0.0, 2], [19, 20, 25, 26, 1.5, 5], [16, 21, 17, 26, 0.0, 2], [17, 21, 18, 25, 0.5, 5], [18, 21, 19, 25, 1.0, 5], [25, 21, 26, 25, 1.0, 5], [26, 21, 27, 25, 0.5, 5], [27, 21, 28, 26, 0.0, 2], [17, 25, 19, 26, 0.0, 2], [25, 25, 27, 26, 0.0, 2], [19, 26, 25, 42, 0.0, 2], [16, 27, 19, 42, 0.0, 2], [25, 27, 28, 42, 0.0, 2], [11, 30, 13, 34, 0.0, 2], [31, 30, 33, 34, 0.0, 2], [14, 35, 16, 42, 0.0, 2], [28, 35, 30, 42, 0.0, 2]], "ramps": [], "roofs": [], "crates": [[27, 36, 6, 6, 1.3, "crate"], [99, 36, 6, 6, 1.3, "crate"], [45, 42, 6, 3, 1.3, "crate"], [81, 42, 6, 3, 1.3, "crate"], [60, 45, 12, 3, 2.6, "cont"], [60, 90, 12, 3, 2.6, "cont"], [45, 93, 6, 3, 1.3, "crate"], [81, 93, 6, 3, 1.3, "crate"], [27, 96, 6, 6, 1.3, "crate"], [99, 96, 6, 6, 1.3, "crate"]], "doors": [], "lamps": [[30, 54, 4.0], [90, 54, 4.0]], "spawns": {"T": [[64, 115], [67, 115], [64, 112], [67, 112], [64, 118], [67, 118], [61, 115], [70, 115], [61, 112], [70, 112]], "CT": [[64, 19], [67, 19], [64, 16], [67, 16], [64, 22], [67, 22], [61, 19], [70, 19], [61, 16], [70, 16]]}, "yaw": {"T": 0, "CT": 3.14159}, "sites": {"A": [24, 48, 48, 81], "B": [84, 48, 108, 81]}, "routes": {"A": [[[37.5, 91.5]], [[67.5, 67.5]], [[67.5, 94.5]]], "B": [[[94.5, 91.5]], [[67.5, 67.5]], [[67.5, 94.5]]]}, "holds": {"A": [[37.5, 43.5, 65.5, 114.4], [31.5, 64.5, 65.5, 114.4], [30.0, 64.5, 65.5, 114.4], [42.0, 64.5, 65.5, 114.4]], "B": [[94.5, 43.5, 65.5, 114.4], [100.5, 64.5, 65.5, 114.4], [90.0, 64.5, 65.5, 114.4], [102.0, 64.5, 65.5, 114.4]], "MID": [[37.5, 43.5, 65.5, 114.4], [94.5, 43.5, 65.5, 114.4], [67.5, 40.5, 65.5, 114.4]]}, "buy": {"T": [42, 105, 90, 126], "CT": [42, 9, 90, 30]}, "callouts": [["A Site", 24, 48, 48, 81], ["B Site", 84, 48, 108, 81], ["T Spawn", 42, 105, 90, 126], ["CT Spawn", 42, 9, 90, 30], ["Platform", 51, 57, 81, 81], ["Mid", 0, 0, 132, 132]], "ported": true};
 
 export const MAP_DEFS = { dust2: DUST2, mirage: MIRAGE, inferno: INFERNO, warehouse: WAREHOUSE, bazaar: BAZAAR, arena: ARENA };
-// Custom maps are persisted by the server and loaded by both the authoritative server and browsers.
-let CUSTOM_MAPS = {};
-try {
-  if (typeof window === 'undefined' && typeof process !== 'undefined' && process.versions?.node) {
-    const fs = await import('node:fs/promises');
-    const url = await import('node:url');
-    const file = url.fileURLToPath(new URL('../custom-maps.json', import.meta.url));
-    try { CUSTOM_MAPS = JSON.parse(await fs.readFile(file, 'utf8')); } catch {}
-  } else if (typeof window !== 'undefined') {
-    const response = await fetch('/api/maps/custom');
-    if (response.ok) CUSTOM_MAPS = await response.json();
-  }
-} catch (err) { console.warn('Custom maps could not be loaded', err); }
-for (const [id, def] of Object.entries(CUSTOM_MAPS || {})) {
-  if (def && typeof def === 'object' && def.id === id && Array.isArray(def.areas) && def.spawns && Array.isArray(def.spawns.T) && Array.isArray(def.spawns.CT)) MAP_DEFS[id] = def;
-}
 export const MAP_LIST = Object.values(MAP_DEFS).map((d) => ({ id: d.id, name: d.name }));
 export const mapName = (id) => (MAP_DEFS[id] ? MAP_DEFS[id].name : 'Dust II');
 

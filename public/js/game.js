@@ -616,17 +616,7 @@ export class Game {
   // ---------------- frame ----------------
   update(dt) {
     if (!this.inRoom) return;
-    const now = performance.now(), snow = this.serverNow();
-    // The in-game map editor owns the camera and keyboard while active. Keep
-    // remote players/effects/HUD alive, but don't let gameplay overwrite the
-    // free editor camera or move/fire the local player from stale input.
-    if (window.__mapEditorActive) {
-      this.keys = {}; this.mouseL = false; this.mouseR = false;
-      this.updateRemotes(dt, snow); this.updateNades(dt); this.updateEffects(dt); this.updateHUD(now);
-      if (now - (this.radarT || 0) > 33) { this.radarT = now; this.updateRadar(); }
-      return;
-    }
-    if (this.menuPaused) { this.updateCamera(0, now); this.updateHUD(now); return; }
+    if (this.menuPaused) { this.updateCamera(0, performance.now()); this.updateHUD(performance.now()); return; } const now = performance.now(), snow = this.serverNow();
     if (this.alive) this.updateLocal(dt, now); else if (this.mouseL && this.touchFire) this.specNext(1);
     this.updateRemotes(dt, snow); this.updateNades(dt); this.updateCamera(dt, now); this.updateViewModel(dt, now); this.updateEffects(dt);
     const tw = this.activeW(), tf = $('t-fire'), tf2 = $('t-fire2');

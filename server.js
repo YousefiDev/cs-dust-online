@@ -9,7 +9,6 @@ import crypto from 'crypto';
 import fs from 'fs';
 import { ServerCore } from './shared/core.js';
 import { TICK_RATE } from './shared/constants.js';
-import { MAP_DEFS } from './shared/maps.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT) || 3000;
@@ -23,31 +22,6 @@ app.use('/shared', express.static(path.join(root, 'shared'), { maxAge: 0 }));
 app.use(express.static(path.join(root, 'public'), { maxAge: 0 }));
 app.get('/health', (_req, res) => res.json({ ok: true, uptime: Math.round(process.uptime()), ...core.stats(), servers: core.list() }));
 app.get('/admin', (_req, res) => res.sendFile(path.join(root, 'public', 'admin.html')));
-app.get('/map-editor', (_req, res) => res.sendFile(path.join(root, 'public', 'map-editor.html')));
-app.get('/api/maps/definitions', (_req, res) => res.json(MAP_DEFS));
-app.get('/api/maps/custom', (_req, res) => {
-  try { res.json(JSON.parse(fs.readFileSync(path.join(root, 'custom-maps.json'), 'utf8'))); }
-  catch { res.json({}); }
-});
-app.use(express.json({ limit: '3mb' }));
-app.post('/api/maps/save', (req, res) => {
-  if (req.body?.key !== ADMIN_KEY) return res.status(401).json({ ok:false, error:'unauthorized' });
-  const maps = req.body?.maps;
-  if (!maps || typeof maps !== 'object' || Array.isArray(maps)) return res.status(400).json({ ok:false, error:'invalid_maps' });
-  const clean = {};
-  for (const [id, d] of Object.entries(maps)) {
-    if (!/^[a-z0-9_-]{2,32}$/.test(id) || !d || d.id !== id || typeof d.name !== 'string' ||
-        !Array.isArray(d.areas) || !Array.isArray(d.spawns?.T) || !Array.isArray(d.spawns?.CT) ||
-        !Array.isArray(d.ramps) || !d.sites || !d.buy || !d.routes || !d.holds || !Array.isArray(d.callouts)) {
-      return res.status(400).json({ ok:false, error:'invalid_map_definition', id });
-    }
-    clean[id] = d;
-  }
-  try {
-    fs.writeFileSync(path.join(root, 'custom-maps.json'), JSON.stringify(clean, null, 2));
-    res.json({ ok:true, count:Object.keys(clean).length, restartRequired:true });
-  } catch { res.status(500).json({ ok:false, error:'save_failed' }); }
-});
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' }, pingInterval: 5000, pingTimeout: 12000, perMessageDeflate: false, maxHttpBufferSize: 64 * 1024 });

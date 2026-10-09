@@ -1,6 +1,6 @@
 // Boot: renderer, Dust II world, lobby flyover, settings, connection and the frame loop.
 import * as THREE from 'three';
-import { getMap, buildMap } from '/shared/maps.js';
+import { getMap } from '/shared/maps.js';
 import { buildWorld } from './world.js';
 import { Sound } from './audio.js';
 import { HUD } from './hud.js';
@@ -239,7 +239,7 @@ document.addEventListener('pointerlockchange', () => {
   // Losing pointer lock while the page is hidden is expected when switching to
   // another tab/window. Do not turn that into a gameplay pause; visibilitychange
   // restores the clock and input state when the player comes back.
-  if (!game.locked && !document.hidden && !mapEditor.active && game.inRoom && !game.buyOpen && !game.chatOpen && $('teamsel').hidden && $('settings').hidden && !game.menuPaused && !touch) game.setMenuPaused(true);
+  if (!game.locked && !document.hidden && game.inRoom && !game.buyOpen && !game.chatOpen && $('teamsel').hidden && $('settings').hidden && !game.menuPaused && !touch) game.setMenuPaused(true);
   if (game.locked) { $('pause').hidden = true; canvas.focus({ preventScroll: true }); }
 });
 addEventListener('blur', () => { game.keys = {}; game.mouseL = false; game.mouseR = false; });
@@ -329,70 +329,6 @@ if (touch) {
   addEventListener('resize', () => { if (!editing()) applyLayout(settings.touchLayout); });
   if (settings.gyro) enableGyro();
 }
-// ---------- in-game map editor (uses the live game scene and map definition) ----------
-const mapEditor = { active: false, tool: 'select', speed: 18, yaw: 0, pitch: -0.28, keys: {}, lastX: 0, lastY: 0, dirty: false };
-const editorUI = document.createElement('section');
-editorUI.id = 'in-game-editor';
-editorUI.innerHTML = `<style>
-#in-game-editor{position:fixed;z-index:1000;left:12px;top:12px;width:min(350px,calc(100vw - 24px));max-height:calc(100vh - 24px);overflow:auto;background:rgba(13,19,27,.94);color:#f3f6fa;border:1px solid #536476;border-radius:12px;padding:12px;font:13px/1.4 system-ui;box-shadow:0 10px 35px #0008;display:none}#in-game-editor .ed-head{display:flex;align-items:center;justify-content:space-between;font-weight:800;font-size:15px;margin-bottom:8px}#in-game-editor .ed-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}#in-game-editor button,#in-game-editor select{background:#263545;color:#fff;border:1px solid #526477;border-radius:7px;padding:9px 7px;font:inherit;cursor:pointer}#in-game-editor button.active{background:#d99b35;color:#161616;border-color:#f5c36c}#in-game-editor .ed-wide{width:100%;margin-top:7px}#in-game-editor .ed-note{color:#c4d0dc;font-size:12px;margin:8px 0}#in-game-editor #ed-status{color:#9fe3a9;margin-top:8px;overflow-wrap:anywhere}body.editor-active{cursor:crosshair}body.editor-active #in-game-editor{cursor:auto}
-</style><div class="ed-head"><span>CS ONLINE · MAP EDITOR</span><button id="ed-close" title="Close">✕</button></div><div class="ed-note">F6: خروج/ورود ادیتور · WASD حرکت دوربین · کلیک روی مپ برای اعمال ابزار</div><div class="ed-grid"><button data-tool="select" class="active">انتخاب / جابه‌جایی</button><button data-tool="wall">ساخت دیوار</button><button data-tool="floor">پاک‌کردن دیوار / زمین</button><button data-tool="crate">افزودن جعبه</button><button data-tool="spawnT">اسپاون T</button><button data-tool="spawnCT">اسپاون CT</button><button data-tool="delete">حذف آبجکت</button><button id="ed-reset-view">مرکز دوربین</button></div><button class="ed-wide" id="ed-save">ذخیره و خروجی JSON</button><button class="ed-wide" id="ed-download">دانلود فایل مپ</button><div id="ed-status">آماده · تغییرات هنوز ذخیره نشده‌اند</div></section>`;
-document.body.appendChild(editorUI);
-const edStatus = (t) => { const el = document.getElementById('ed-status'); if (el) el.textContent = t; };
-const edSetTool = (t) => { mapEditor.tool = t; editorUI.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === t)); edStatus('ابزار فعال: ' + t); };
-const edDisposeWorld = () => { if (!world) return; scene.remove(world.root); world.root.traverse(o => { o.geometry?.dispose?.(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.map?.dispose?.(); m.normalMap?.dispose?.(); m.dispose?.(); }); }); };
-function edRebuild() {
-  const old = game.map; const next = buildMap(old.def); edDisposeWorld();
-  world = buildWorld(scene, next, { low: Q === 'low', quality: Q }); worldId = next.id; game.map = next; game.hud.buildRadar(next); mapEditor.dirty = true;
-  edStatus('تغییر اعمال شد · برای نگه‌داری، «ذخیره و خروجی JSON» را بزن');
-}
-function edCell(point, kind) {
-  const m = game.map, def = m.def, S = def.scale || 1; const x = Math.max(0, Math.min(m.W - 1, Math.floor(point.x))), z = Math.max(0, Math.min(m.H - 1, Math.floor(point.z)));
-  if (kind === 'wall' || kind === 'floor') {
-    // Areas are authored in design-grid units; append a one-cell override so earlier rectangles remain intact.
-    const height = kind === 'wall' ? 100 : 0;
-    def.areas.push([x / S, z / S, (x + 1) / S, (z + 1) / S, height, 1]);
-  } else if (kind === 'crate') {
-    const base = m.floor[z * m.W + x]; if (base >= 100) { edStatus('روی دیوار جعبه نمی‌شود گذاشت؛ اول زمین بساز'); return; }
-    def.crates.push([x, z, 1, 1, 1.2, 'crate']);
-  } else if (kind === 'spawnT' || kind === 'spawnCT') {
-    const team = kind === 'spawnT' ? 'T' : 'CT'; def.spawns[team].push([x + 0.5, z + 0.5]);
-  } else if (kind === 'delete') {
-    let best = -1, dist = 2.5;
-    (def.crates || []).forEach((c,i) => { const d = Math.hypot(c[0] + c[2]/2 - point.x, c[1] + c[3]/2 - point.z); if (d < dist) {dist=d;best=i;} });
-    if (best >= 0) def.crates.splice(best,1); else { edStatus('نزدیک این نقطه جعبه‌ای پیدا نشد؛ برای دیوار از ابزار زمین استفاده کن'); return; }
-  } else if (kind === 'select') {
-    // Quick move existing crate nearest the clicked cell; click destination after selecting.
-    const picked = mapEditor.pickedCrate;
-    if (picked != null) { const c = def.crates[picked]; if (c) { c[0] = x; c[1] = z; mapEditor.pickedCrate = null; } }
-    else { let best=-1,dist=3; (def.crates||[]).forEach((c,i)=>{const d=Math.hypot(c[0]+c[2]/2-point.x,c[1]+c[3]/2-point.z);if(d<dist){dist=d;best=i;}}); if(best<0){edStatus('جعبه‌ای انتخاب نشد؛ برای افزودن از ابزار جعبه استفاده کن');return;} mapEditor.pickedCrate=best; edStatus('جعبه انتخاب شد؛ روی مقصد کلیک کن تا منتقل شود');return; }
-  }
-  edRebuild();
-}
-function edHit(e) {
-  const rect = canvas.getBoundingClientRect(), mouse = new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1, -((e.clientY-rect.top)/rect.height)*2+1);
-  const ray = new THREE.Raycaster(); ray.setFromCamera(mouse,camera);
-  const hits = world ? ray.intersectObjects(world.root.children, true) : [];
-  if (hits.length) return hits[0].point;
-  const plane = new THREE.Plane(new THREE.Vector3(0,1,0),0), point = new THREE.Vector3(); return ray.ray.intersectPlane(plane,point) ? point : null;
-}
-function edToggle(force) {
-  mapEditor.active = force == null ? !mapEditor.active : !!force; editorUI.style.display = mapEditor.active ? 'block' : 'none'; document.body.classList.toggle('editor-active',mapEditor.active);
-  if (mapEditor.active) { window.__mapEditorActive = true; game.keys = {}; game.mouseL = false; game.mouseR = false; game.s.crouch = false; game.menuPaused = false; $('pause').hidden = true; if (document.pointerLockElement) document.exitPointerLock(); game.locked=false; mapEditor.yaw=camera.rotation.y; mapEditor.pitch=camera.rotation.x; mapEditor.pitch=Math.max(-1.35,Math.min(1.35,mapEditor.pitch)); mapEditor.keys={}; edStatus('حالت ادیت فعال · مپ زنده بازی'); }
-  else { window.__mapEditorActive = false; mapEditor.keys={}; game.keys = {}; game.menuPaused = false; $('pause').hidden = true; edStatus(mapEditor.dirty ? 'ادیتور بسته شد؛ تغییرات در خروجی JSON ذخیره می‌شوند' : 'به حالت بازی برگشتی'); }
-}
-editorUI.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click',()=>edSetTool(b.dataset.tool)));
-document.getElementById('ed-close').addEventListener('click',()=>edToggle(false));
-document.getElementById('ed-reset-view').addEventListener('click',()=>{camera.position.set(game.s.x,Math.max(8,game.s.y+8),game.s.z+12);mapEditor.yaw=0;mapEditor.pitch=-0.45;edStatus('دوربین به بازیکن منتقل شد');});
-document.getElementById('ed-save').addEventListener('click',()=>{ const payload=JSON.stringify(game.map.def,null,2); localStorage.setItem('cs-map-edit-'+game.map.id,payload); const blob=new Blob([payload],{type:'application/json'}); const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=game.map.id+'-edited.json';a.click();URL.revokeObjectURL(a.href);mapEditor.dirty=false;edStatus('خروجی JSON دانلود شد. برای اعمال روی همه بازیکنان باید این تعریف به سرور/مخزن مپ اضافه شود.'); });
-document.getElementById('ed-download').addEventListener('click',()=>document.getElementById('ed-save').click());
-addEventListener('keydown',e=>{if(e.code==='F6'){e.preventDefault();e.stopImmediatePropagation();edToggle();return;}if(!mapEditor.active)return;if(['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE','ShiftLeft','ShiftRight'].includes(e.code)){mapEditor.keys[e.code]=true;e.preventDefault();}e.stopImmediatePropagation();},{capture:true});
-addEventListener('keyup',e=>{if(mapEditor.active){mapEditor.keys[e.code]=false;e.preventDefault();e.stopImmediatePropagation();}},{capture:true});
-canvas.addEventListener('click',e=>{if(!mapEditor.active)return;e.preventDefault();e.stopImmediatePropagation();const p=edHit(e);if(p)edCell(p,mapEditor.tool);},true);
-canvas.addEventListener('mousedown',e=>{if(mapEditor.active){e.preventDefault();e.stopImmediatePropagation();}},true);
-addEventListener('mousemove',e=>{if(!mapEditor.active||e.buttons!==2)return;mapEditor.yaw-=e.movementX*0.003;mapEditor.pitch=Math.max(-1.35,Math.min(1.35,mapEditor.pitch-e.movementY*0.003));});
-canvas.addEventListener('contextmenu',e=>{if(mapEditor.active)e.preventDefault();});
-function edUpdate(dt){if(!mapEditor.active)return;const dir=new THREE.Vector3();const forward=new THREE.Vector3(-Math.sin(mapEditor.yaw),0,-Math.cos(mapEditor.yaw));const right=new THREE.Vector3(Math.cos(mapEditor.yaw),0,-Math.sin(mapEditor.yaw));if(mapEditor.keys.KeyW)dir.add(forward);if(mapEditor.keys.KeyS)dir.sub(forward);if(mapEditor.keys.KeyD)dir.add(right);if(mapEditor.keys.KeyA)dir.sub(right);if(mapEditor.keys.KeyE)dir.y+=1;if(mapEditor.keys.KeyQ)dir.y-=1;if(dir.lengthSq())camera.position.addScaledVector(dir.normalize(),mapEditor.speed*dt*(mapEditor.keys.ShiftLeft||mapEditor.keys.ShiftRight?2.5:1));camera.rotation.order='YXZ';camera.rotation.set(mapEditor.pitch,mapEditor.yaw,0);}
-
 // ---------- loop ----------
 let last = performance.now(), flyT = 0;
 // Cinematic drone shots over iconic spots: [lookX, lookZ, camX, camY, camZ]
@@ -410,7 +346,6 @@ function frame(now) {
   if (game._settingsFrameReset) { game._settingsFrameReset = false; last = now; }
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
   if (game.inRoom) game.update(dt); else lobbyCam(dt);
-  if (mapEditor.active) edUpdate(dt);
   if (world && world.update) world.update(dt, camera.position);
   renderer.clear(); renderer.render(scene, camera);
   if (game.inRoom && game.alive && game.vm && game.vm.group.visible) { renderer.clearDepth(); renderer.render(vmScene, vmCamera); }
