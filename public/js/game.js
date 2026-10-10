@@ -191,9 +191,9 @@ export class Game {
     const show = b.state === 'planted' || b.state === 'dropped';
     this.bombMesh.visible = show; this.bombLed.visible = b.state === 'planted';
     if (show) { this.bombMesh.position.set(b.x, b.y + 0.06, b.z); this.bombMesh.rotation.set(0, 0.6, 0); }
-    if (b.state === 'planted' && prev.state !== 'planted') { this.lastBeep = 0; }
+    if (b.state === 'planted' && prev.state !== 'planted') { this.lastBeep = 0; this.sound.planted(new THREE.Vector3(b.x, b.y + 0.2, b.z)); }
     if (b.state === 'exploded' && prev.state !== 'exploded') this.explosionFx(prev.x ?? b.x, prev.y ?? b.y, prev.z ?? b.z);
-    if (b.state === 'defused' && prev.state !== 'defused') { radio('Bomb has been defused', this.settings.radio); }
+    if (b.state === 'defused' && prev.state !== 'defused') { radio('Bomb has been defused', this.settings.radio); this.sound.defused(new THREE.Vector3(b.x, b.y + 0.2, b.z)); }
   }
   onDrops(list) {
     const ids = new Set(list.map((d) => d.id));
@@ -227,8 +227,8 @@ export class Game {
     const r = this.remotes.get(a.id); const pos = r ? r.rig.root.position.clone() : new THREE.Vector3(this.s.x, this.s.y, this.s.z);
     if (a.type === 'plant') this.sound.keypad(pos, a.id);
     else if (a.type === 'cancel') this.sound.cancelKeypad(a.id);
-    else if (a.type === 'defuse') this.sound.defuse(pos);
-    else if (a.type === 'reload' && r) this.sound.click(0.25, 1600, pos, 0.4);
+    else if (a.type === 'defuse') this.sound.defuse(pos, a.id);
+    else if (a.type === 'reload' && r) this.sound.reload(null, 2.4, pos);
     else if (a.type === 'throw' && r) this.sound.nadeThrow(pos);
   }
   resetFrameClock() {
