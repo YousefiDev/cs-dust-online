@@ -1,184 +1,36 @@
 {
-  "ak47": [
-    "real_ak47_1.wav",
-    "real_ak47_2.wav",
-    "real_ak47_3.wav",
-    "real_ak47_4.wav"
-  ],
-  "galil": [
-    "real_galil_1.wav",
-    "real_galil_2.wav",
-    "real_galil_3.wav"
-  ],
-  "sg553": [
-    "real_sg553_1.wav",
-    "real_sg553_2.wav",
-    "real_sg553_3.wav"
-  ],
-  "m4a4": [
-    "real_m4a4_1.wav",
-    "real_m4a4_2.wav",
-    "real_m4a4_3.wav"
-  ],
-  "famas": [
-    "real_famas_1.wav",
-    "real_famas_2.wav",
-    "real_famas_3.wav"
-  ],
-  "aug": [
-    "real_aug_1.wav",
-    "real_aug_2.wav",
-    "real_aug_3.wav"
-  ],
-  "m4a1s": "real_m4a1s_1.wav",
-  "awp": [
-    "real_awp_1.wav",
-    "real_awp_2.wav"
-  ],
-  "mac10": [
-    "real_mac10_1.wav",
-    "real_mac10_2.wav"
-  ],
-  "mp9": [
-    "real_mp9_1.wav",
-    "real_mp9_2.wav",
-    "real_mp9_3.wav"
-  ],
-  "p90": [
-    "real_p90_1.wav",
-    "real_p90_2.wav"
-  ],
-  "deagle": [
-    "real_deagle_1.wav",
-    "real_deagle_2.wav"
-  ],
-  "glock": [
-    "real_glock_1.wav",
-    "real_glock_2.wav"
-  ],
-  "usp": [
-    "real_usp_1.wav",
-    "real_usp_2.wav",
-    "real_usp_3.wav"
-  ],
   "knife": [
-    "real_knife_1.wav",
-    "real_knife_2.wav"
-  ],
-  "reload_glock": [
-    "real_reload_glock_1.wav",
-    "real_reload_glock_2.wav"
-  ],
-  "reload_usp": [
-    "real_reload_usp_1.wav",
-    "real_reload_usp_2.wav"
-  ],
-  "reload_deagle": [
-    "real_reload_deagle_1.wav",
-    "real_reload_deagle_2.wav"
-  ],
-  "reload_mac10": [
-    "real_reload_mac10_1.wav",
-    "real_reload_mac10_2.wav"
-  ],
-  "reload_mp9": [
-    "real_reload_mp9_1.wav",
-    "real_reload_mp9_2.wav"
-  ],
-  "reload_p90": [
-    "real_reload_p90_1.wav",
-    "real_reload_p90_2.wav"
-  ],
-  "reload_ak47": [
-    "real_reload_ak47_1.wav",
-    "real_reload_ak47_2.wav",
-    "real_reload_ak47_3.wav"
-  ],
-  "reload_galil": [
-    "real_reload_galil_1.wav",
-    "real_reload_galil_2.wav"
-  ],
-  "reload_famas": [
-    "real_reload_famas_1.wav",
-    "real_reload_famas_2.wav"
-  ],
-  "reload_m4a4": [
-    "real_reload_m4a4_1.wav",
-    "real_reload_m4a4_2.wav"
-  ],
-  "reload_m4a1s": [
-    "real_reload_m4a1s_1.wav",
-    "real_reload_m4a1s_2.wav"
-  ],
-  "reload_sg553": [
-    "real_reload_sg553_1.wav",
-    "real_reload_sg553_2.wav",
-    "real_reload_sg553_3.wav"
-  ],
-  "reload_aug": [
-    "real_reload_aug_1.wav",
-    "real_reload_aug_2.wav"
-  ],
-  "reload_awp": [
-    "real_reload_awp_1.wav",
-    "real_reload_awp_2.wav"
-  ],
-  "reload": "reload_generic.wav",
-  "dry": [
-    "real_dry_1.wav",
-    "real_dry_2.wav"
+    "source/physics/weapons/weapon_knife_impact_01.wav",
+    "source/physics/weapons/weapon_knife_impact_02.wav",
+    "source/physics/weapons/weapon_knife_impact_03.wav"
   ],
   "hit_head": [
-    "hit_head_1.wav",
-    "hit_head_2.wav"
+    "source/player/headshot_noarmor_01.wav",
+    "source/player/headshot_noarmor_02.wav",
+    "source/player/headshot_noarmor_03.wav",
+    "source/player/headshot_armor_01.wav"
   ],
   "hit_body": [
-    "hit_body_1.wav",
-    "hit_body_2.wav"
+    "source/physics/weapons/weapon_rifle_impact_02.wav",
+    "source/physics/weapons/weapon_rifle_impact_03.wav",
+    "source/physics/weapons/weapon_pistol_impact_01.wav",
+    "source/physics/weapons/weapon_smg_impact_07.wav"
   ],
   "hurt": [
-    "hurt_1.wav",
-    "hurt_2.wav",
-    "hurt_3.wav"
-  ],
-  "nade_throw": [
-    "real_nade_throw_1.wav",
-    "real_nade_throw_2.wav"
-  ],
-  "he": [
-    "real_he_1.wav",
-    "real_he_2.wav"
-  ],
-  "flash": [
-    "real_flash_1.wav",
-    "real_flash_2.wav"
-  ],
-  "ring": "real_ring_1.wav",
-  "smoke": [
-    "real_smoke_1.wav",
-    "real_smoke_2.wav"
+    "source/player/damage1.wav",
+    "source/player/damage2.wav",
+    "source/player/damage3.wav"
   ],
   "draw": [
-    "real_draw_1.wav",
-    "real_draw_2.wav",
-    "real_draw_3.wav"
+    "source/items/pickup_weapon_01.wav",
+    "source/items/pickup_weapon_02.wav",
+    "source/items/pickup_rifle.wav",
+    "source/items/pickup_pistol.wav"
   ],
   "ui": [
-    "ui_1.wav",
-    "ui_2.wav"
-  ],
-  "money": "money.wav",
-  "c4_beep": [
-    "real_c4_beep_1.wav",
-    "real_c4_beep_2.wav"
-  ],
-  "c4_beep_fast": [
-    "real_c4_beep_fast_1.wav",
-    "real_c4_beep_fast_2.wav"
-  ],
-  "c4_plant": "real_c4_plant_1.wav",
-  "c4_planted": "real_c4_planted_1.wav",
-  "c4_defuse": "real_c4_defuse_1.wav",
-  "c4_defused": "real_c4_defused_1.wav",
-  "c4_explode": "real_c4_explode_1.wav"
+    "source/buttons/blip1.wav",
+    "source/buttons/blip2.wav",
+    "source/buttons/button8.wav",
+    "source/buttons/button9.wav"
+  ]
 }
