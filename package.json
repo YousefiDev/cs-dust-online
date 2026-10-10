@@ -9,7 +9,8 @@
     "start": "node server.js",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "cf:login": "wrangler login"
+    "cf:login": "wrangler login",
+    "sync": "cp shared/*.js public/shared/"
   },
   "dependencies": {
     "express": "^4.21.2",

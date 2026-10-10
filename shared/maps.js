@@ -307,6 +307,25 @@ export function getMap(id) {
   const m = buildMap(MAP_DEFS[id]); cache.set(id, m); return m;
 }
 
+// Custom maps (saved by the map editor) are merged into the live registry so rooms AND clients can use them.
+// Returns the ids that actually changed. A broken map is skipped instead of crashing the server.
+const customSig = new Map();
+export function registerCustomMaps(defs) {
+  const changed = [];
+  for (const [id, def] of Object.entries(defs || {})) {
+    try {
+      if (!/^[a-z0-9_-]{2,32}$/.test(id) || !def || typeof def !== 'object' || def.id !== id) continue;
+      const sig = JSON.stringify(def); if (customSig.get(id) === sig) continue;
+      def.ramps ||= []; def.name ||= id;
+      const built = buildMap(def); // throws if the definition is unusable
+      MAP_DEFS[id] = def; customSig.set(id, sig); cache.set(id, built);
+      const row = MAP_LIST.find((m) => m.id === id); if (row) row.name = def.name; else MAP_LIST.push({ id, name: def.name });
+      changed.push(id);
+    } catch (e) { /* ignore broken custom map */ }
+  }
+  return changed;
+}
+
 export function buildMap(def) {
   const S = def.scale || 1, [W, H] = def.size, N = W * H;
   const heights = new Float32Array(N).fill(WALL), floor = new Float32Array(N).fill(WALL);

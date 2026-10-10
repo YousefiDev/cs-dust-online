@@ -224,6 +224,10 @@ export class Game {
     if (this.specId === e.v) this.specSwitchAt = performance.now() + 1800;
   }
   onAct(a) {
+    if (a.id === this.meId && this.you) { // show the plant/defuse bar immediately, don't wait for the next 'you' packet
+      if ((a.type === 'plant' || a.type === 'defuse') && a.end) this.you.act = { type: a.type, end: a.end };
+      else if (a.type === 'cancel') this.you.act = null;
+    }
     const r = this.remotes.get(a.id); const pos = r ? r.rig.root.position.clone() : new THREE.Vector3(this.s.x, this.s.y, this.s.z);
     if (a.type === 'plant') this.sound.keypad(pos, a.id);
     else if (a.type === 'cancel') this.sound.cancelKeypad(a.id);

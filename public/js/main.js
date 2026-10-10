@@ -1,6 +1,6 @@
 // Boot: renderer, Dust II world, lobby flyover, settings, connection and the frame loop.
 import * as THREE from 'three';
-import { getMap } from '/shared/maps.js';
+import { getMap, registerCustomMaps, MAP_DEFS } from '/shared/maps.js';
 import { buildWorld } from './world.js';
 import { Sound } from './audio.js';
 import { HUD } from './hud.js';
@@ -38,7 +38,7 @@ let world = null, worldId = null;
 function loadMap(id, force = false) {
   if (worldId === id && !force) return getMap(id);
   if (world) { scene.remove(world.root); world.root.traverse((o) => { o.geometry?.dispose?.(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { m.map?.dispose?.(); m.normalMap?.dispose?.(); m.roughnessMap?.dispose?.(); m.aoMap?.dispose?.(); m.dispose?.(); }); }); }
-  const bt = document.getElementById('brand-map'); if (bt) bt.textContent = ({ dust2: 'DUST II', mirage: 'MIRAGE', inferno: 'INFERNO', warehouse: 'WAREHOUSE', bazaar: 'BAZAAR', arena: 'ARENA' })[id] || 'DUST II';
+  const bt = document.getElementById('brand-map'); if (bt) bt.textContent = String((MAP_DEFS[id] && MAP_DEFS[id].name) || 'Dust II').toUpperCase();
   const m = getMap(id); world = buildWorld(scene, m, { low: Q === 'low', quality: Q }); worldId = m.id; game && (game.map = m); return m;
 }
 let game = null;
@@ -104,7 +104,9 @@ async function ensureOnline() {
 let rejoin = null, rejoinTimer = 0;
 const sessionId = (() => { let v = localStorage.getItem('cs-session'); if (!v) { v = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)); localStorage.setItem('cs-session', v); } return v; })();
 $('rc-leave').addEventListener('click', () => { rejoin = null; clearTimeout(rejoinTimer); game.cleanup(); showLobby(); });
-function hello() { return new Promise((res) => net.emit('hello', { name: playerName(), session: sessionId }, (r) => { if (r && r.t && !net.offline) game.offset = r.t - Date.now(); res(r); })); }
+// Maps saved from the map editor live on the server; fetch them so the client builds exactly the same map the server runs.
+async function syncCustomMaps() { try { const r = await fetch('/api/maps/custom', { cache: 'no-store' }); if (r.ok) registerCustomMaps(await r.json()); } catch (e) {} }
+function hello() { return new Promise((res) => net.emit('hello', { name: playerName(), session: sessionId }, async (r) => { if (r && r.t && !net.offline) { game.offset = r.t - Date.now(); await syncCustomMaps(); } res(r); })); }
 function roomRow(r) {
   const el = document.createElement('div'); el.className = 'room';
   const phase = r.phase === 'warmup' ? 'Warmup' : `Round ${r.round} · ${r.score.CT}-${r.score.T}`;

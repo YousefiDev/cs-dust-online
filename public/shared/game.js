@@ -487,7 +487,7 @@ export class GameRoom {
     }
     if (p.team === 'CT' && this.phase === 'planted' && b.state === 'planted' && !b.defuser && Math.hypot(p.x - b.x, p.z - b.z) < 2.0 && Math.abs(p.y - b.y) < 1.6) {
       p.action = { type: 'defuse', end: now + (p.kit ? ROUND.defuseKit : ROUND.defuse) * 1000, x: p.x, z: p.z }; b.defuser = p.id; b.defuseEnd = p.action.end;
-      this.broadcast('act', { id: p.id, type: 'defuse', end: p.action.end, kit: p.kit }); this.broadcast('bomb', this.bombPublic()); return;
+      p.youDirty = true; this.broadcast('act', { id: p.id, type: 'defuse', end: p.action.end, kit: p.kit }); this.broadcast('bomb', this.bombPublic()); return;
     }
     let best = null, bd = 1.7;
     for (const d of this.drops.values()) { const dd = Math.hypot(d.x - p.x, d.z - p.z); if (dd < bd && Math.abs(d.y - p.y) < 1.6) { bd = dd; best = d; } }
@@ -568,11 +568,12 @@ export class GameRoom {
     return {ok:true,passed:false};
   }
   // ---------- admin controls ----------
-  adminRoster() {
-    return this.list.map((p) => ({ id: p.id, name: p.name, bot: !!p.bot, team: p.team, alive: !!p.alive,
+  adminView(p) {
+    return { id: p.id, name: p.name, bot: !!p.bot, team: p.team, alive: !!p.alive,
       hp: Math.round(p.hp), armor: Math.round(p.armor), money: Math.round(p.money), k: p.k, d: p.d, a: p.a, xp:p.rankXp, rank:p.rankName, rankTag:p.rankTag,
-      ping: p.ping, bomb: !!p.hasBomb, noclip: !!p.noclip, god: !!p.god, x: r2(p.x), y: r2(p.y), z: r2(p.z) }));
+      ping: p.ping, bomb: !!p.hasBomb, noclip: !!p.noclip, god: !!p.god, x: r2(p.x), y: r2(p.y), z: r2(p.z) };
   }
+  adminRoster() { return this.list.map((p) => this.adminView(p)); }
   adminSet(id, action, value) {
     const p = this.players.get(String(id)); if (!p) return { ok:false, error:'player_not_found' };
     const n = Number(value);
@@ -597,7 +598,7 @@ export class GameRoom {
       case 'kick': this.removePlayer(p.id); return {ok:true, kicked:true};
       default: return {ok:false,error:'bad_action'};
     }
-    p.youDirty = true; this.rosterDirty = true; return {ok:true};
+    p.youDirty = true; this.rosterDirty = true; return {ok:true, player:this.adminView(p)};
   }
   adminRoom(action, value) {
     switch (action) {

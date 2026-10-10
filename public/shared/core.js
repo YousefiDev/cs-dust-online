@@ -33,12 +33,13 @@ export class ServerCore {
   }
   saveData() {
     try {
+      // A host-provided persistence hook (Cloudflare Durable Object) always wins, whatever globals the runtime exposes.
+      if (typeof this.onSaveData === 'function') { this.onSaveData(this.data); return; }
       const raw = JSON.stringify(this.data, null, 2);
       if (RUNNING_IN_BROWSER) localStorage.setItem(this.dataFile, raw);
       else if (RUNNING_IN_NODE) fs.writeFileSync(this.dataFile, raw);
-      else if (typeof this.onSaveData === 'function') this.onSaveData(this.data);
     } catch (e) {
-      if (RUNNING_IN_NODE) console.error('[data]', e.message);
+      console.error('[data]', e && e.message);
     }
   }
   profile(name) { const k=String(name||'').toLowerCase(); return this.data.profiles[k] ||= { xp:0 }; }
@@ -57,7 +58,8 @@ export class ServerCore {
   leave(c) { const r = c.room && this.rooms.get(c.room); if (r) r.removePlayer(c.id); c.room = null; }
   list() { return [...this.rooms.values()].map((r) => r.summary()).sort((a, b) => b.humans - a.humans); }
   makeRoomConfig(d = {}, code = null) { const c = code || makeCode(); return { code:c, title:cleanName(d.title || 'Community Server').slice(0,24), map:MAP_DEFS[d.map] ? d.map : 'dust2', bots:d.bots === 'none' ? 'none' : 'fill', difficulty:['easy','normal','hard'].includes(d.difficulty) ? d.difficulty : 'normal', max:Math.max(2, Math.min(16, Number(d.max)||10)), weaponLimits:{awp:0,sg553:0,aug:0}, enabled:true, createdAt:Date.now() }; }
-  bootRoom(cfg) { if (!cfg || !cfg.enabled || this.rooms.has(cfg.code)) return null; const room = new GameRoom({ code:cfg.code, map:cfg.map, title:cfg.title, bots:cfg.bots, difficulty:cfg.difficulty, max:cfg.max, weaponLimits:{...(this.data.settings?.weaponLimits||{}), ...(cfg.weaponLimits||{})}, profiles:this.data.profiles, moderation:this.data, saveData:()=>this.saveData(), addXp:(name,n)=>this.addXp(name,n) }, this.out); this.rooms.set(cfg.code, room); return room; }
+  bootRoom(cfg) { if (!cfg || !cfg.enabled || this.rooms.has(cfg.code)) return null; try { return this.bootRoomUnsafe(cfg); } catch (e) { console.error('[boot]', cfg.code, cfg.map, e && e.message); if (cfg.map !== 'dust2') { try { return this.bootRoomUnsafe({ ...cfg, map: 'dust2' }); } catch (e2) { console.error('[boot-fallback]', e2 && e2.message); } } return null; } }
+  bootRoomUnsafe(cfg) { const room = new GameRoom({ code:cfg.code, map:cfg.map, title:cfg.title, bots:cfg.bots, difficulty:cfg.difficulty, max:cfg.max, weaponLimits:{...(this.data.settings?.weaponLimits||{}), ...(cfg.weaponLimits||{})}, profiles:this.data.profiles, moderation:this.data, saveData:()=>this.saveData(), addXp:(name,n)=>this.addXp(name,n) }, this.out); this.rooms.set(cfg.code, room); return room; }
   loadManagedRooms() { for (const cfg of Object.values(this.data.servers || {})) if (cfg.enabled) this.bootRoom(cfg); }
   ensureDefaultServers(list) {
     // First boot: create public servers so friends can join right away without opening the admin panel.
