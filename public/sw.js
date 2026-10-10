@@ -1,4 +1,4 @@
-const CACHE = 'cs-dust-online-v9-sell-pause';
+const CACHE = 'cs-dust-online-v10-realistic-audio';
 const CORE = [
   '/', '/manifest.webmanifest', '/css/style.css',
   '/js/main.js', '/js/game.js', '/js/hud.js', '/js/models.js',
