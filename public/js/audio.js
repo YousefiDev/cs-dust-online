@@ -59,10 +59,10 @@ export class Sound {
       }
     }).catch(() => {});
   }
-  playSample(name, pos = null, gain = 1, wet = 0.3) {
+  playSample(name, pos = null, gain = 1, wet = 0.3, rate = 1) {
     const list = this.samples.get(name); if (!list || !list.length) return false;
-    const s = this.ctx.createBufferSource(); s.buffer = list[Math.floor(Math.random() * list.length)]; s.playbackRate.value = 0.98 + Math.random() * 0.04;
-    s.connect(this.out(pos, gain, wet)); s.start(); return true;
+    const s = this.ctx.createBufferSource(); s.buffer = list[Math.floor(Math.random() * list.length)]; s.playbackRate.value = rate * (0.985 + Math.random() * 0.03);
+    const g = this.out(pos, gain, wet); s.connect(g); s.start(); return { o: s, gain: g };   // handle so long sounds can be cancelled
   }
   setVolume(v) { this.vol = v; if (this.master) this.master.gain.value = v; }
   setListener(pos, f, up = [0, 1, 0]) {
@@ -106,7 +106,7 @@ export class Sound {
   }
   // ---- weapons ----
   shot(k, pos) {
-    if (!this.ctx) return; if (this.playSample(k, pos, 1, 0.4)) return;
+    if (!this.ctx) return; if (this.playSample(k, pos, 1, 0.16)) return;
     const t = this.ctx.currentTime;
     if (k === 'knife') { const o = this.out(pos, 0.5); this.noiseBurst(o, t, 0.16, 4200, 2, 'bandpass', 0.6, 1.3); return; }
     const s = SHOT[k]; if (!s) return;
@@ -120,10 +120,11 @@ export class Sound {
     if (s.bolt) { const b = this.out(pos, 0.5); this.mech(b, t + 0.6, 'bolt'); this.clack(b, t + 0.9, 0.5, 2800); }
   }
   reload(k, dur, pos = null) {
-    if (!this.ctx) return; if (this.playSample(`reload_${k}`, pos, 0.6, 0.1) || this.playSample('reload', pos, 0.6, 0.1)) return;
+    if (!this.ctx) return; if (this.playSample(`reload_${k}`, pos, pos ? 0.9 : 1.3, 0.05) || this.playSample('reload', pos, pos ? 0.9 : 1.3, 0.05)) return;
     const seq = RELOAD_SEQ[RELOAD_CLASS[k] || 'rifle'], t = this.ctx.currentTime, o = this.out(pos, pos ? 0.9 : 1.4, 0.05);
     for (const [f, kind] of seq) this.mech(o, t + dur * f, kind);
   }
+  draw() { if (!this.ctx) return; if (this.playSample('draw', null, 0.8, 0)) return; this.click(0.2, 1200); }
   dry() { if (!this.ctx) return; if (this.playSample('dry')) return; this.clack(this.out(null, 1.2), this.ctx.currentTime, 0.5, 3500); }
   click(gain = 0.3, f = 2400, pos = null, delay = 0) { if (!this.ctx) return; const t = this.ctx.currentTime + delay; this.noiseBurst(this.out(pos, gain), t, 0.04, f, 3, 'bandpass', 0.9); }
   hit(head) {
@@ -135,11 +136,11 @@ export class Sound {
   hurt() { if (!this.ctx) return; if (this.playSample('hurt')) return; const t = this.ctx.currentTime; this.tone(this.out(null, 0.5), t, 160, 0.18, 'sine', 0.8, 60); this.noiseBurst(this.out(null, 0.3), t, 0.12, 900, 1, 'lowpass', 0.8); }
   // ---- grenades ----
   nadeThrow(pos = null) {
-    if (!this.ctx) return; if (this.playSample('nade_throw', pos, 0.6)) return;
+    if (!this.ctx) return; if (this.playSample('nade_throw', pos, 0.9, 0.1)) return;
     const t = this.ctx.currentTime, o = this.out(pos, 1.2, 0.1); this.clack(o, t, 0.5, 2200); this.tone(o, t + 0.12, 3000, 0.09, 'triangle', 0.25, 1900); this.noiseBurst(o, t + 0.12, 0.08, 4000, 1.5, 'bandpass', 0.2);
   }
   heBlast(pos) {
-    if (!this.ctx) return; if (this.playSample('he', pos, 1.5, 0.6)) return;
+    if (!this.ctx) return; if (this.playSample('he', pos, 1.1, 0.25)) return;
     const t = this.ctx.currentTime, o = this.out(pos, 1.25, 0.7);
     this.noiseBurst(o, t, 0.08, 5500, 0.6, 'highpass', 0.9, 1.3, 0.001, 0.4);
     this.noiseBurst(o, t, 0.6, 1800, 0.5, 'lowpass', 1.0, 1, 0.003, 0.1);
@@ -147,23 +148,23 @@ export class Sound {
     for (let i = 0; i < 8; i++) this.noiseBurst(o, t + 0.2 + Math.random() * 0.8, 0.03, 1500 + Math.random() * 3000, 2, 'bandpass', 0.12, 1);
   }
   flashBang(pos) {
-    if (!this.ctx) return; if (this.playSample('flash', pos, 0.9, 0.5)) return;
+    if (!this.ctx) return; if (this.playSample('flash', pos, 0.9, 0.2)) return;
     const t = this.ctx.currentTime, o = this.out(pos, 0.95, 0.6);
     this.noiseBurst(o, t, 0.06, 7000, 0.6, 'highpass', 0.9, 1.4, 0.001, 0.5); this.noiseBurst(o, t, 0.28, 4500, 1.2, 'highpass', 0.7, 1, 0.002, 0.4); this.tone(o, t, 3400, 0.4, 'sine', 0.12);
   }
   smokePop(pos) {
-    if (!this.ctx) return; if (this.playSample('smoke', pos, 0.6, 0.3)) return;
+    if (!this.ctx) return; if (this.playSample('smoke', pos, 0.8, 0.2)) return;
     const t = this.ctx.currentTime, o = this.out(pos, 0.5, 0.3);
     this.tone(o, t, 140, 0.25, 'sine', 0.6, 60); this.noiseBurst(o, t, 0.25, 850, 0.7, 'lowpass', 0.45); this.noiseBurst(o, t + 0.05, 0.9, 3000, 0.5, 'bandpass', 0.14, 1, 0.08, 0.6);
   }
-  ring(amount = 1) { if (!this.ctx) return; const t = this.ctx.currentTime; this.tone(this.out(null, 0.35), t, 1100, 0.35 + amount * 0.7, 'sine', 0.2, 300); }
+  ring(amount = 1) { if (!this.ctx) return; const h = this.playSample('ring', null, 0.9 * Math.min(1, amount), 0); if (h) { const t0 = this.ctx.currentTime, g = h.gain.gain; g.setValueAtTime(0.9 * Math.min(1, amount), t0); g.setValueAtTime(0.9 * Math.min(1, amount), t0 + 0.2 + amount * 1.2); g.linearRampToValueAtTime(0.0001, t0 + 0.8 + amount * 2.6); return; } const t = this.ctx.currentTime; this.tone(this.out(null, 0.35), t, 1100, 0.35 + amount * 0.7, 'sine', 0.2, 300); }
   step(pos, gain = 0.5) {
     if (!this.ctx || !this.steps.length) return; const s = this.ctx.createBufferSource(); s.buffer = this.steps[Math.floor(Math.random() * this.steps.length)];
-    s.playbackRate.value = 0.9 + Math.random() * 0.2; s.connect(this.out(pos, gain)); s.start();
+    s.playbackRate.value = 0.93 + Math.random() * 0.14; s.connect(this.out(pos, gain, pos ? 0.06 : 0)); s.start();
   }
   // ---- bomb ----
   beep(pos, hi = false) { // C4 countdown beep
-    if (!this.ctx) return; if (this.playSample(hi ? 'c4_beep_fast' : 'c4_beep', pos, 0.9, 0.2)) return;
+    if (!this.ctx) return; if (this.playSample(hi ? 'c4_beep_fast' : 'c4_beep', pos, 1.3, 0.12)) return;
     const t = this.ctx.currentTime, o = this.out(pos, 1.5, 0.2), f = hi ? 2900 : 2300;
     this.tone(o, t, f, 0.11, 'sine', 0.55); this.tone(o, t, f * 2, 0.05, 'square', 0.07); this.noiseBurst(o, t, 0.012, 6000, 1, 'highpass', 0.2, 1, 0.001, 1);
   }
@@ -171,7 +172,7 @@ export class Sound {
     if (!this.ctx) return;
     this.cancelKeypad(owner);
     const nodes = new Set(); this.plantSounds.set(owner, nodes);
-    if (this.playSample('c4_plant', pos, 0.8, 0.15)) { setTimeout(() => { if (this.plantSounds.get(owner) === nodes) this.plantSounds.delete(owner); }, 3500); return; }
+    const hp = this.playSample('c4_plant', pos, 1.0, 0.1); if (hp) { nodes.add(hp); setTimeout(() => { if (this.plantSounds.get(owner) === nodes) this.plantSounds.delete(owner); }, 3600); return; }
     const t = this.ctx.currentTime;
     for (let i = 0; i < 7; i++) {
       const o = this.out(pos, 0.8, 0.15), tt = t + i * 0.36, r = DTMF_ROWS[Math.floor(Math.random() * 4)], c = DTMF_COLS[Math.floor(Math.random() * 3)];
@@ -183,12 +184,12 @@ export class Sound {
     if (!this.ctx) return;
     const nodes = this.plantSounds.get(owner); if (!nodes) return;
     const t = this.ctx.currentTime;
-    for (const node of nodes) { try { node.gain.gain.cancelScheduledValues(t); node.gain.gain.setValueAtTime(0.0001, t); node.o.stop(t); } catch (_) {} }
+    for (const node of nodes) { try { node.gain.gain.cancelScheduledValues(t); node.gain.gain.setTargetAtTime(0.0001, t, 0.012); node.o.stop(t + 0.08); } catch (_) {} }
     this.plantSounds.delete(owner);
   }
   cancelAll() { for (const k of [...this.plantSounds.keys()]) this.cancelKeypad(k); }
   planted(pos) { // bomb planted confirmation
-    if (!this.ctx) return; if (this.playSample('c4_planted', pos, 1, 0.3)) return;
+    if (!this.ctx) return; if (this.playSample('c4_planted', pos, 1.1, 0.2)) return;
     const t = this.ctx.currentTime, o = this.out(pos, 1.3, 0.3);
     for (let i = 0; i < 3; i++) { this.tone(o, t + i * 0.15, 1900 + i * 250, 0.1, 'sine', 0.5); this.tone(o, t + i * 0.15, 3800 + i * 500, 0.05, 'square', 0.06); }
     this.tone(o, t + 0.5, 140, 0.18, 'sine', 0.7, 70); this.clack(o, t + 0.5, 0.4, 2000);
@@ -197,7 +198,7 @@ export class Sound {
     if (!this.ctx) return;
     this.cancelKeypad(owner);
     const nodes = new Set(); this.plantSounds.set(owner, nodes);
-    if (this.playSample('c4_defuse', pos, 0.8, 0.15)) return;
+    const hd = this.playSample('c4_defuse', pos, 1.0, 0.1); if (hd) { nodes.add(hd); setTimeout(() => { if (this.plantSounds.get(owner) === nodes) this.plantSounds.delete(owner); }, 10300); return; }
     const t = this.ctx.currentTime; let tt = t;
     for (let i = 0; i < 22; i++) {
       const o = this.out(pos, 0.9, 0.1);
@@ -207,12 +208,12 @@ export class Sound {
     setTimeout(() => { if (this.plantSounds.get(owner) === nodes) this.plantSounds.delete(owner); }, 8000);
   }
   defused(pos) { // successful defuse
-    if (!this.ctx) return; this.cancelAll(); if (this.playSample('c4_defused', pos, 1, 0.3)) return;
+    if (!this.ctx) return; this.cancelAll(); if (this.playSample('c4_defused', pos, 1.1, 0.2)) return;
     const t = this.ctx.currentTime, o = this.out(pos, 1.2, 0.3);
     this.clack(o, t, 0.6, 2600); this.tone(o, t + 0.08, 1320, 0.25, 'sine', 0.4); this.tone(o, t + 0.2, 1760, 0.4, 'sine', 0.4); this.tone(o, t + 0.2, 880, 0.4, 'triangle', 0.2);
   }
   explosion(pos) { // C4 detonation
-    if (!this.ctx) return; if (this.playSample('c4_explode', pos, 2.2, 0.8)) return;
+    if (!this.ctx) return; if (this.playSample('c4_explode', pos, 1.2, 0.25)) return;
     const t = this.ctx.currentTime, o = this.out(pos, 1.6, 0.9);
     this.noiseBurst(o, t, 0.12, 6000, 0.5, 'highpass', 1.0, 1.2, 0.001, 0.3);                           // initial crack
     this.noiseBurst(o, t, 1.4, 2400, 0.4, 'lowpass', 1.0, 1, 0.003, 0.08);                              // blast
@@ -220,8 +221,8 @@ export class Sound {
     this.noiseBurst(o, t + 0.12, 3.8, 420, 0.3, 'lowpass', 0.7, 0.6, 0.05, 0.3);                        // rumble
     for (let i = 0; i < 26; i++) { const tt = t + 0.25 + Math.random() * 2.4; this.noiseBurst(o, tt, 0.02 + Math.random() * 0.04, 1500 + Math.random() * 3500, 2, 'bandpass', (0.15 + Math.random() * 0.25) * (1 - (tt - t) / 3), 1); } // debris
   }
-  ui(f = 900) { if (!this.ctx) return; this.tone(this.out(null, 0.2), this.ctx.currentTime, f, 0.06, 'triangle', 0.3); }
-  money() { if (!this.ctx) return; const t = this.ctx.currentTime; this.tone(this.out(null, 0.2), t, 1200, 0.08, 'triangle', 0.3); this.tone(this.out(null, 0.2), t + 0.07, 1800, 0.1, 'triangle', 0.3); }
+  ui(f = 900) { if (!this.ctx) return; if (this.playSample('ui', null, 0.8, 0, f / 900)) return; this.tone(this.out(null, 0.2), this.ctx.currentTime, f, 0.06, 'triangle', 0.3); }
+  money() { if (!this.ctx) return; if (this.playSample('money', null, 0.7, 0)) return; const t = this.ctx.currentTime; this.tone(this.out(null, 0.2), t, 1200, 0.08, 'triangle', 0.3); this.tone(this.out(null, 0.2), t + 0.07, 1800, 0.1, 'triangle', 0.3); }
   sting(win) {
     if (!this.ctx) return; const t = this.ctx.currentTime, o = this.out(null, 0.25), notes = win ? [523, 659, 784, 1046] : [392, 349, 311, 262];
     notes.forEach((n, i) => { this.tone(o, t + i * 0.14, n, 0.5, 'sawtooth', 0.12); this.tone(o, t + i * 0.14, n / 2, 0.5, 'triangle', 0.2); });

@@ -404,11 +404,11 @@ export class Game {
       let k = this.you.gk && g[this.you.gk] > 0 ? this.you.gk : have[0];
       if (this.you.a === 4) { if (have.length < 2) return; k = have[(have.indexOf(k) + 1) % have.length]; } else this.lastSlot = this.you.a;
       this.you.a = 4; this.you.gk = k; this.pendingSwitch = performance.now(); this.net.emit('sw', { slot: 4, k });
-      this.drawEnd = performance.now() + 500; this.scope = 0; this.reloadUntil = 0; this.shotsFired = 0; this.sound.click(0.2, 1200); return;
+      this.drawEnd = performance.now() + 500; this.scope = 0; this.reloadUntil = 0; this.shotsFired = 0; this.sound.draw(); return;
     }
     if (slot === 5 ? !this.you.b : !this.you.w[slot]) return; if (this.you.a === slot) return;
     this.lastSlot = this.you.a; this.you.a = slot; this.pendingSwitch = performance.now(); this.net.emit('sw', { slot });
-    const w = WEAPONS[slot === 5 ? 'c4' : this.you.w[slot].k]; this.drawEnd = performance.now() + (w.draw || 0.4) * 1000; this.scope = 0; this.reloadUntil = 0; this.shotsFired = 0; this.sound.click(0.2, 1200);
+    const w = WEAPONS[slot === 5 ? 'c4' : this.you.w[slot].k]; this.drawEnd = performance.now() + (w.draw || 0.4) * 1000; this.scope = 0; this.reloadUntil = 0; this.shotsFired = 0; this.sound.draw();
   }
   cycleSlot(dir) { if (!this.you) return; const g = this.you.g || {}; const order = [1, 2, 3, 4, 5].filter((s) => (s === 5 ? this.you.b : s === 4 ? NADES.some((n) => g[n] > 0) : this.you.w[s])); const i = order.indexOf(this.you.a); this.switchSlot(order[(i + dir + order.length) % order.length]); }
   toggleScope() { const w = this.activeW(); if (!w || !w.scope || this.reloadUntil || !this.alive) { this.scope = 0; return; } this.scope = (this.scope + 1) % (w.scope.length + 1); this.sound.click(0.15, 3000); }
