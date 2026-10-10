@@ -1,78 +1,135 @@
 {
+  "ak47": [
+    "ak47_1.ogg",
+    "ak47_2.ogg",
+    "ak47_3.ogg"
+  ],
+  "galil": [
+    "galil_1.ogg",
+    "galil_2.ogg",
+    "galil_3.ogg"
+  ],
+  "sg553": [
+    "sg553_1.ogg",
+    "sg553_2.ogg",
+    "sg553_3.ogg"
+  ],
+  "m4a4": [
+    "m4a4_1.ogg",
+    "m4a4_2.ogg",
+    "m4a4_3.ogg"
+  ],
+  "famas": [
+    "famas_1.ogg",
+    "famas_2.ogg",
+    "famas_3.ogg"
+  ],
+  "aug": [
+    "aug_1.ogg",
+    "aug_2.ogg",
+    "aug_3.ogg"
+  ],
+  "m4a1s": [
+    "m4a1s_1.ogg",
+    "m4a1s_2.ogg",
+    "m4a1s_3.ogg"
+  ],
+  "awp": [
+    "awp_1.ogg",
+    "awp_2.ogg",
+    "awp_3.ogg"
+  ],
+  "mac10": [
+    "mac10_1.ogg",
+    "mac10_2.ogg",
+    "mac10_3.ogg"
+  ],
+  "mp9": [
+    "mp9_1.ogg",
+    "mp9_2.ogg",
+    "mp9_3.ogg"
+  ],
+  "p90": [
+    "p90_1.ogg",
+    "p90_2.ogg",
+    "p90_3.ogg"
+  ],
+  "deagle": [
+    "deagle_1.ogg",
+    "deagle_2.ogg",
+    "deagle_3.ogg"
+  ],
+  "glock": [
+    "glock_1.ogg",
+    "glock_2.ogg",
+    "glock_3.ogg"
+  ],
+  "usp": [
+    "usp_1.ogg",
+    "usp_2.ogg",
+    "usp_3.ogg"
+  ],
   "knife": [
     "knife_1.ogg",
-    "knife_2.ogg",
-    "knife_3.ogg",
-    "knife_4.ogg",
-    "knife_5.ogg"
+    "knife_2.ogg"
   ],
-  "hit_body": [
-    "flesh_hit_1.ogg",
-    "flesh_hit_2.ogg",
-    "flesh_hit_3.ogg",
-    "flesh_hit_4.ogg",
-    "flesh_hit_5.ogg"
+  "reload_glock": "reload_glock.ogg",
+  "reload_usp": "reload_usp.ogg",
+  "reload_deagle": "reload_deagle.ogg",
+  "reload_mac10": "reload_mac10.ogg",
+  "reload_mp9": "reload_mp9.ogg",
+  "reload_p90": "reload_p90.ogg",
+  "reload_ak47": "reload_ak47.ogg",
+  "reload_galil": "reload_galil.ogg",
+  "reload_famas": "reload_famas.ogg",
+  "reload_m4a4": "reload_m4a4.ogg",
+  "reload_m4a1s": "reload_m4a1s.ogg",
+  "reload_sg553": "reload_sg553.ogg",
+  "reload_aug": "reload_aug.ogg",
+  "reload_awp": "reload_awp.ogg",
+  "reload": "reload_generic.ogg",
+  "dry": [
+    "dry_1.ogg",
+    "dry_2.ogg"
   ],
   "hit_head": [
-    "body_hit_1.ogg",
-    "body_hit_2.ogg",
-    "body_hit_3.ogg",
-    "body_hit_4.ogg"
+    "hit_head_1.ogg",
+    "hit_head_2.ogg"
+  ],
+  "hit_body": [
+    "hit_body_1.ogg",
+    "hit_body_2.ogg"
   ],
   "hurt": [
     "hurt_1.ogg",
     "hurt_2.ogg",
-    "hurt_3.ogg",
-    "hurt_4.ogg"
+    "hurt_3.ogg"
   ],
   "nade_throw": [
-    "grenade_pickup_1.ogg",
-    "grenade_pickup_2.ogg",
-    "grenade_pickup_3.ogg"
+    "nade_throw_1.ogg",
+    "nade_throw_2.ogg"
+  ],
+  "he": [
+    "he_1.ogg",
+    "he_2.ogg"
+  ],
+  "flash": "flash_1.ogg",
+  "ring": "ring.ogg",
+  "smoke": "smoke_1.ogg",
+  "draw": [
+    "draw_1.ogg",
+    "draw_2.ogg"
   ],
   "ui": [
-    "button_blip1.ogg",
-    "button_blip2.ogg"
+    "ui_1.ogg",
+    "ui_2.ogg"
   ],
-  "footsteps": [
-    "steps_concrete_ct_01.ogg",
-    "steps_concrete_ct_02.ogg",
-    "steps_concrete_ct_03.ogg",
-    "steps_concrete_ct_04.ogg",
-    "steps_concrete_ct_05.ogg",
-    "steps_concrete_ct_06.ogg",
-    "steps_concrete_ct_07.ogg",
-    "steps_concrete_ct_08.ogg",
-    "steps_dirt_01.ogg",
-    "steps_dirt_02.ogg",
-    "steps_dirt_03.ogg",
-    "steps_dirt_04.ogg",
-    "steps_dirt_05.ogg",
-    "steps_dirt_06.ogg",
-    "steps_metal_solid_35.ogg",
-    "steps_metal_solid_36.ogg",
-    "steps_metal_solid_37.ogg",
-    "steps_metal_solid_38.ogg",
-    "steps_metal_solid_39.ogg",
-    "steps_metal_solid_40.ogg",
-    "steps_tile_01.ogg",
-    "steps_tile_02.ogg",
-    "steps_tile_03.ogg",
-    "steps_tile_04.ogg",
-    "steps_tile_05.ogg",
-    "steps_tile_06.ogg",
-    "steps_wood_01.ogg",
-    "steps_wood_02.ogg",
-    "steps_wood_03.ogg",
-    "steps_wood_04.ogg",
-    "steps_wood_05.ogg",
-    "steps_wood_06.ogg"
-  ],
-  "c4_defuse": [
-    "defuser_equip.ogg"
-  ],
-  "draw": [
-    "pickup_weapon_1.ogg",
-    "pickup_weapon_2.ogg"
-  ]
+  "money": "money.ogg",
+  "c4_beep": "c4_beep.ogg",
+  "c4_beep_fast": "c4_beep_fast.ogg",
+  "c4_plant": "c4_plant.ogg",
+  "c4_planted": "c4_planted.ogg",
+  "c4_defuse": "c4_defuse.ogg",
+  "c4_defused": "c4_defused.ogg",
+  "c4_explode": "c4_explode.ogg"
 }
