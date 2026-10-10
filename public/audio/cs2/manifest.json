@@ -1,184 +1,135 @@
 {
   "ak47": [
-    "real_ak47_1.wav",
-    "real_ak47_2.wav",
-    "real_ak47_3.wav",
-    "real_ak47_4.wav"
+    "ak47_1.ogg",
+    "ak47_2.ogg",
+    "ak47_3.ogg"
   ],
   "galil": [
-    "real_galil_1.wav",
-    "real_galil_2.wav",
-    "real_galil_3.wav"
+    "galil_1.ogg",
+    "galil_2.ogg",
+    "galil_3.ogg"
   ],
   "sg553": [
-    "real_sg553_1.wav",
-    "real_sg553_2.wav",
-    "real_sg553_3.wav"
+    "sg553_1.ogg",
+    "sg553_2.ogg",
+    "sg553_3.ogg"
   ],
   "m4a4": [
-    "real_m4a4_1.wav",
-    "real_m4a4_2.wav",
-    "real_m4a4_3.wav"
+    "m4a4_1.ogg",
+    "m4a4_2.ogg",
+    "m4a4_3.ogg"
   ],
   "famas": [
-    "real_famas_1.wav",
-    "real_famas_2.wav",
-    "real_famas_3.wav"
+    "famas_1.ogg",
+    "famas_2.ogg",
+    "famas_3.ogg"
   ],
   "aug": [
-    "real_aug_1.wav",
-    "real_aug_2.wav",
-    "real_aug_3.wav"
+    "aug_1.ogg",
+    "aug_2.ogg",
+    "aug_3.ogg"
   ],
-  "m4a1s": "real_m4a1s_1.wav",
+  "m4a1s": [
+    "m4a1s_1.ogg",
+    "m4a1s_2.ogg",
+    "m4a1s_3.ogg"
+  ],
   "awp": [
-    "real_awp_1.wav",
-    "real_awp_2.wav"
+    "awp_1.ogg",
+    "awp_2.ogg",
+    "awp_3.ogg"
   ],
   "mac10": [
-    "real_mac10_1.wav",
-    "real_mac10_2.wav"
+    "mac10_1.ogg",
+    "mac10_2.ogg",
+    "mac10_3.ogg"
   ],
   "mp9": [
-    "real_mp9_1.wav",
-    "real_mp9_2.wav",
-    "real_mp9_3.wav"
+    "mp9_1.ogg",
+    "mp9_2.ogg",
+    "mp9_3.ogg"
   ],
   "p90": [
-    "real_p90_1.wav",
-    "real_p90_2.wav"
+    "p90_1.ogg",
+    "p90_2.ogg",
+    "p90_3.ogg"
   ],
   "deagle": [
-    "real_deagle_1.wav",
-    "real_deagle_2.wav"
+    "deagle_1.ogg",
+    "deagle_2.ogg",
+    "deagle_3.ogg"
   ],
   "glock": [
-    "real_glock_1.wav",
-    "real_glock_2.wav"
+    "glock_1.ogg",
+    "glock_2.ogg",
+    "glock_3.ogg"
   ],
   "usp": [
-    "real_usp_1.wav",
-    "real_usp_2.wav",
-    "real_usp_3.wav"
+    "usp_1.ogg",
+    "usp_2.ogg",
+    "usp_3.ogg"
   ],
   "knife": [
-    "real_knife_1.wav",
-    "real_knife_2.wav"
+    "knife_1.ogg",
+    "knife_2.ogg"
   ],
-  "reload_glock": [
-    "real_reload_glock_1.wav",
-    "real_reload_glock_2.wav"
-  ],
-  "reload_usp": [
-    "real_reload_usp_1.wav",
-    "real_reload_usp_2.wav"
-  ],
-  "reload_deagle": [
-    "real_reload_deagle_1.wav",
-    "real_reload_deagle_2.wav"
-  ],
-  "reload_mac10": [
-    "real_reload_mac10_1.wav",
-    "real_reload_mac10_2.wav"
-  ],
-  "reload_mp9": [
-    "real_reload_mp9_1.wav",
-    "real_reload_mp9_2.wav"
-  ],
-  "reload_p90": [
-    "real_reload_p90_1.wav",
-    "real_reload_p90_2.wav"
-  ],
-  "reload_ak47": [
-    "real_reload_ak47_1.wav",
-    "real_reload_ak47_2.wav",
-    "real_reload_ak47_3.wav"
-  ],
-  "reload_galil": [
-    "real_reload_galil_1.wav",
-    "real_reload_galil_2.wav"
-  ],
-  "reload_famas": [
-    "real_reload_famas_1.wav",
-    "real_reload_famas_2.wav"
-  ],
-  "reload_m4a4": [
-    "real_reload_m4a4_1.wav",
-    "real_reload_m4a4_2.wav"
-  ],
-  "reload_m4a1s": [
-    "real_reload_m4a1s_1.wav",
-    "real_reload_m4a1s_2.wav"
-  ],
-  "reload_sg553": [
-    "real_reload_sg553_1.wav",
-    "real_reload_sg553_2.wav",
-    "real_reload_sg553_3.wav"
-  ],
-  "reload_aug": [
-    "real_reload_aug_1.wav",
-    "real_reload_aug_2.wav"
-  ],
-  "reload_awp": [
-    "real_reload_awp_1.wav",
-    "real_reload_awp_2.wav"
-  ],
-  "reload": "reload_generic.wav",
+  "reload_glock": "reload_glock.ogg",
+  "reload_usp": "reload_usp.ogg",
+  "reload_deagle": "reload_deagle.ogg",
+  "reload_mac10": "reload_mac10.ogg",
+  "reload_mp9": "reload_mp9.ogg",
+  "reload_p90": "reload_p90.ogg",
+  "reload_ak47": "reload_ak47.ogg",
+  "reload_galil": "reload_galil.ogg",
+  "reload_famas": "reload_famas.ogg",
+  "reload_m4a4": "reload_m4a4.ogg",
+  "reload_m4a1s": "reload_m4a1s.ogg",
+  "reload_sg553": "reload_sg553.ogg",
+  "reload_aug": "reload_aug.ogg",
+  "reload_awp": "reload_awp.ogg",
+  "reload": "reload_generic.ogg",
   "dry": [
-    "real_dry_1.wav",
-    "real_dry_2.wav"
+    "dry_1.ogg",
+    "dry_2.ogg"
   ],
   "hit_head": [
-    "hit_head_1.wav",
-    "hit_head_2.wav"
+    "hit_head_1.ogg",
+    "hit_head_2.ogg"
   ],
   "hit_body": [
-    "hit_body_1.wav",
-    "hit_body_2.wav"
+    "hit_body_1.ogg",
+    "hit_body_2.ogg"
   ],
   "hurt": [
-    "hurt_1.wav",
-    "hurt_2.wav",
-    "hurt_3.wav"
+    "hurt_1.ogg",
+    "hurt_2.ogg",
+    "hurt_3.ogg"
   ],
   "nade_throw": [
-    "real_nade_throw_1.wav",
-    "real_nade_throw_2.wav"
+    "nade_throw_1.ogg",
+    "nade_throw_2.ogg"
   ],
   "he": [
-    "real_he_1.wav",
-    "real_he_2.wav"
+    "he_1.ogg",
+    "he_2.ogg"
   ],
-  "flash": [
-    "real_flash_1.wav",
-    "real_flash_2.wav"
-  ],
-  "ring": "real_ring_1.wav",
-  "smoke": [
-    "real_smoke_1.wav",
-    "real_smoke_2.wav"
-  ],
+  "flash": "flash_1.ogg",
+  "ring": "ring.ogg",
+  "smoke": "smoke_1.ogg",
   "draw": [
-    "real_draw_1.wav",
-    "real_draw_2.wav",
-    "real_draw_3.wav"
+    "draw_1.ogg",
+    "draw_2.ogg"
   ],
   "ui": [
-    "ui_1.wav",
-    "ui_2.wav"
+    "ui_1.ogg",
+    "ui_2.ogg"
   ],
-  "money": "money.wav",
-  "c4_beep": [
-    "real_c4_beep_1.wav",
-    "real_c4_beep_2.wav"
-  ],
-  "c4_beep_fast": [
-    "real_c4_beep_fast_1.wav",
-    "real_c4_beep_fast_2.wav"
-  ],
-  "c4_plant": "real_c4_plant_1.wav",
-  "c4_planted": "real_c4_planted_1.wav",
-  "c4_defuse": "real_c4_defuse_1.wav",
-  "c4_defused": "real_c4_defused_1.wav",
-  "c4_explode": "real_c4_explode_1.wav"
+  "money": "money.ogg",
+  "c4_beep": "c4_beep.ogg",
+  "c4_beep_fast": "c4_beep_fast.ogg",
+  "c4_plant": "c4_plant.ogg",
+  "c4_planted": "c4_planted.ogg",
+  "c4_defuse": "c4_defuse.ogg",
+  "c4_defused": "c4_defused.ogg",
+  "c4_explode": "c4_explode.ogg"
 }

@@ -45,7 +45,7 @@ export class Sound {
     for (let ch = 0; ch < 2; ch++) { const x = ir.getChannelData(ch); let lp = 0; for (let i = 0; i < rl; i++) { lp += ((Math.random() * 2 - 1) - lp) * (0.6 - 0.5 * i / rl); x[i] = lp * Math.pow(1 - i / rl, 3.2) * 2.2; } }
     this.revIn = c.createGain(); const conv = c.createConvolver(); conv.buffer = ir; const wet = c.createGain(); wet.gain.value = 0.55;
     this.revIn.connect(conv); conv.connect(wet); wet.connect(this.master);
-    for (let i = 1; i <= 6; i++) fetch(`/audio/footstep_${i}.wav`).then((r) => r.arrayBuffer()).then((a) => this.ctx.decodeAudioData(a)).then((buf) => this.steps.push(buf)).catch(() => {});
+    for (let i = 1; i <= 6; i++) fetch(`/audio/footstep_${i}.ogg`).then((r) => r.arrayBuffer()).then((a) => this.ctx.decodeAudioData(a)).then((buf) => this.steps.push(buf)).catch(() => {});
     this.loadSamples();
   }
   // optional real CS2 sample override: /audio/cs2/manifest.json  ->  { "ak47": "ak47.wav", "c4_beep": ["beep1.wav","beep2.wav"] }
