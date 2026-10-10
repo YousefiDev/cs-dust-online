@@ -1,4 +1,4 @@
-const CACHE = 'cs-dust-online-v10-realistic-audio';
+const CACHE = 'cs-dust-online-v11-cs2-audio';
 const CORE = [
   '/', '/manifest.webmanifest', '/css/style.css',
   '/js/main.js', '/js/game.js', '/js/hud.js', '/js/models.js',

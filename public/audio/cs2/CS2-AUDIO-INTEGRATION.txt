@@ -8,3 +8,12 @@ This build wires real WAV samples extracted from the user's CS2_WAV archive into
 - Sounds that do not have a matching extracted sample in the archive continue to use the project's existing generated/fallback audio.
 
 The web game's existing `public/js/audio.js` loads this manifest via Web Audio API. Run the project using its normal local/server instructions; opening `index.html` directly may prevent fetch() from loading audio assets.
+
+
+Audio integration audit (2026-10):
+- Confirmed every WAV filename referenced by manifest.json exists in public/audio/cs2/.
+- Weapon fire samples are keyed by the game's internal weapon IDs (ak47, galil, sg553, m4a4, famas, aug, m4a1s, awp, mac10, mp9, p90, deagle, glock, usp, knife).
+- Weapon-specific reloads, dry-fire, draw, hit/hurt, grenade, bomb, UI and money events are wired through public/js/audio.js.
+- Footsteps are loaded separately from public/audio/footstep_1.wav through footstep_6.wav.
+- The service-worker cache version was bumped so clients can refresh the updated audio build.
+- To test, run the project with its normal local/server startup script; do not open index.html as a file URL.
