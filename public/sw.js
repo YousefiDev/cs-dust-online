@@ -1,4 +1,4 @@
-const CACHE = 'cs-dust-online-v8-fixes';
+const CACHE = 'cs-dust-online-v9-sell-pause';
 const CORE = [
   '/', '/manifest.webmanifest', '/css/style.css',
   '/js/main.js', '/js/game.js', '/js/hud.js', '/js/models.js',

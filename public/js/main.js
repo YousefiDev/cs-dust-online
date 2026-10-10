@@ -353,5 +353,12 @@ function frame(now) {
   if (game.inRoom && game.alive && game.vm && game.vm.group.visible) { renderer.clearDepth(); renderer.render(vmScene, vmCamera); }
 }
 requestAnimationFrame(frame);
+// Browsers stop requestAnimationFrame in a hidden tab. Without this the player would stop sending state and look
+// frozen (e.g. mid-jump) to everyone else, so keep ticking the simulation from a timer while hidden.
+let bgLast = performance.now();
+setInterval(() => {
+  const now = performance.now(), dt = Math.min(0.25, Math.max(0, (now - bgLast) / 1000)); bgLast = now;
+  if (document.hidden && game.inRoom) game.update(dt);
+}, 250);
 ensureOnline().then(refreshRooms).catch(() => {});
 window.__game = game; window.__three = { renderer, scene, camera };

@@ -101,26 +101,32 @@ export class HUD {
       <div class="sb-team CT"><h4><span>COUNTER-TERRORISTS</span><span>${score.CT}</span></h4>${hdr}${rows('CT')}</div>
       <div class="sb-team T"><h4><span>TERRORISTS</span><span>${score.T}</span></h4>${hdr}${rows('T')}</div>${spec ? `<div class="sb-head"><span>SPECTATORS: ${spec}</span></div>` : ''}`;
   }
-  buyMenu(show, you, team, timeLeft, onBuy, onClose) {
+  buyMenu(show, you, team, timeLeft, onBuy, onClose, onSell) {
     const bm = $('buymenu'); bm.hidden = !show; if (!show) { this._bmHtml = ''; return; }
-    this._onBuy = onBuy; this._onClose = onClose;
+    this._onBuy = onBuy; this._onClose = onClose; this._onSell = onSell;
     const owned = new Set([you.w[1] && you.w[1].k, you.w[2] && you.w[2].k]);
     const item = (k) => {
       const w = WEAPONS[k], g = GEAR[k], it = w || g; const tm = it.team; if (tm && tm !== team) return '';
-      const price = it.price;
+      let price = it.price;
       const locked = false;
       if (k === 'vesthelm' && you.ar >= 100 && !you.hm) price = 350;
       const own = owned.has(k) || (k === 'vest' && you.ar >= 100) || (k === 'vesthelm' && you.ar >= 100 && you.hm) || (k === 'kit' && you.kit) || (w && w.nade && (you.g?.[k] || 0) >= w.max);
       const no = !own && you.money < price;
       const info = w ? (w.nade ? `${you.g?.[k] || 0}/${w.max}` : `${w.dmg} dmg · ${w.rpm} rpm${w.mag ? ' · ' + w.mag + '/' + w.res : ''}`) : k === 'kit' ? 'defuse in 5s' : 'armor 100';
-      return `<button class="bm-item ${no ? 'no' : ''} ${own ? 'own' : ''}" data-k="${k}"><b>${esc(it.name)}</b><span>$${price}</span><small>${info}</small></button>`;
+      // Sell-back offer: only for things bought this round (the server decides and sends `sl`).
+      const sl = you.sl || {}; let sellP = 0, sellN = 0;
+      if (w && w.nade) { sellN = sl.g?.[k] || 0; sellP = sellN ? w.price : 0; }
+      else if (w) { sellP = (you.w[w.slot] && you.w[w.slot].k === k && sl[w.slot]) || 0; }
+      else sellP = sl[k] || 0;
+      const sellBtn = sellP ? `<span class="bm-sell" data-sell="${k}">SELL${sellN > 1 ? ' ×1' : ''} +$${sellP}</span>` : '';
+      return `<button class="bm-item ${no ? 'no' : ''} ${own ? 'own' : ''}" data-k="${k}"><b>${esc(it.name)}</b><span>$${price}</span><small>${info}</small>${sellBtn}</button>`;
     };
     const cats = BUY_MENU.map((c) => ({ ...c, html: c.items.map(item).join('') })).filter((c) => c.html);
     if (!cats.some((c) => c.title === this.bmTab)) this.bmTab = cats.find((c) => c.title === 'Rifles') ? 'Rifles' : cats[0]?.title;
     const html = `<div class="bm-head"><h3>BUY MENU</h3><span class="bm-time"></span><span class="bm-money">$${you.money}</span><button class="bm-close" data-close="1" aria-label="close">×</button></div>
       <div class="bm-tabs">${cats.map((c) => `<button data-tab="${c.title}" class="${c.title === this.bmTab ? 'on' : ''}">${c.title}</button>`).join('')}</div>
       <div class="bm-cols">${cats.map((c) => `<div class="bm-col ${c.title === this.bmTab ? 'on' : ''}"><h4>${c.title}</h4>${c.html}</div>`).join('')}</div>
-      <div class="bm-foot">Click to buy · B / Esc to close</div>`;
+      <div class="bm-foot">Click to buy · SELL refunds this round's purchases · B / Esc to close</div>`;
     // Only rebuild when something actually changed, otherwise a tap that lands during a re-render is lost.
     if (html !== this._bmHtml) {
       const sc = bm.querySelector('.bm-cols')?.scrollTop || 0;
@@ -132,6 +138,7 @@ export class HUD {
       bm.addEventListener('click', (e) => {
         const tab = e.target.closest('[data-tab]'); if (tab) { this.bmTab = tab.dataset.tab; this._bmHtml = ''; this._rerenderBuy && this._rerenderBuy(); return; }
         if (e.target.closest('[data-close]')) { this._onClose && this._onClose(); return; }
+        const sell = e.target.closest('[data-sell]'); if (sell) { e.preventDefault(); e.stopPropagation(); this._onSell && this._onSell(sell.dataset.sell); return; }
         const it = e.target.closest('.bm-item'); if (it && this._onBuy) this._onBuy(it.dataset.k);
       });
     }

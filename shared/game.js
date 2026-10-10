@@ -10,6 +10,8 @@ import { botThink, botRoundStart, botBuy, newBrain } from './bots.js';
 const r2 = (v) => Math.round(v * 100) / 100;
 const other = (t) => (t === 'T' ? 'CT' : 'T');
 let botSeq = 1;
+// Per-round purchase record used by the sell/refund feature. Cleared every round and on death.
+const newSell = () => ({ w: {}, g: { he: 0, flash: 0, smoke: 0 }, gear: {} });
 
 export class GameRoom {
   constructor(opts, out) {
@@ -157,7 +159,7 @@ export class GameRoom {
     this.rosterDirty = true; return p;
   }
   // ---------- spawning / loadout ----------
-  resetLoadout(p) { p.g = newNades(); p.gk = null; p.w = { 1: null, 2: null, 3: newWeapon('knife') }; p.armor = 0; p.helmet = false; p.kit = false; p.hasBomb = false; p.active = 3; p.reloadEnd = 0; p.scoped = 0; }
+  resetLoadout(p) { p.g = newNades(); p.gk = null; p.w = { 1: null, 2: null, 3: newWeapon('knife') }; p.armor = 0; p.helmet = false; p.kit = false; p.hasBomb = false; p.active = 3; p.reloadEnd = 0; p.scoped = 0; p.sell = newSell(); }
   refillRoundAmmo(p) {
     for (const slot of [1, 2, 3]) {
       const it = p.w[slot]; if (!it) continue;
@@ -194,7 +196,7 @@ export class GameRoom {
     }
     this.drops.clear(); this.bomb = { state: 'none' }; this.spawnIdx = { T: 0, CT: 0 }; this.nades.clear(); this.smokes = []; this.broadcast('smokes', []);
     this.phase = 'freeze'; this.phaseEnd = now + ROUND.freeze * 1000;
-    for (const p of this.players.values()) { p.action = null; p.crouch = false; if (p.team === 'T' || p.team === 'CT') { if (!p.alive) this.resetLoadout(p); else this.refillRoundAmmo(p); p.hasBomb = false; this.spawn(p); this.refillRoundAmmo(p); } }
+    for (const p of this.players.values()) { p.action = null; p.crouch = false; p.sell = newSell(); if (p.team === 'T' || p.team === 'CT') { if (!p.alive) this.resetLoadout(p); else this.refillRoundAmmo(p); p.hasBomb = false; this.spawn(p); this.refillRoundAmmo(p); } }
     const ts = this.team('T').filter((p) => p.alive);
     if (ts.length) { const humansT = ts.filter((p) => !p.bot); const pool = humansT.length && Math.random() < 0.6 ? humansT : ts; const c = pool[Math.floor(Math.random() * pool.length)] || ts[0]; c.hasBomb = true; this.bomb = { state: 'carried', carrier: c.id }; }
     botRoundStart(this);
@@ -316,12 +318,78 @@ export class GameRoom {
   }
   bombPublic() { const b = this.bomb; return { state: b.state, carrier: b.carrier || null, x: b.x, y: b.y, z: b.z, site: b.site, explodeAt: b.explodeAt, defuser: b.defuser || null, defuseEnd: b.defuseEnd || 0 }; }
   bestSlot(p) { return p.w[1] ? 1 : p.w[2] ? 2 : 3; }
-  buy(p, item) {
+  // Shared by buy() and sell(): returns an error result, or null when the player may shop right now.
+  buyGate(p) {
     const now = Date.now();
     if (!p || !p.alive || p.team === 'SPEC') return { ok: false, error: 'You are dead' };
     const canTime = this.phase === 'warmup' || this.phase === 'freeze' || (this.phase === 'live' && now - this.liveStart < ROUND.buy * 1000);
     if (!canTime) return { ok: false, error: 'Buy time has expired' };
     if (this.phase !== 'warmup' && !inRect(this.map.def.buy[p.team], p.x, p.z)) return { ok: false, error: 'You are not in a buy zone' };
+    return null;
+  }
+  sellOf(p) { return p.sell || (p.sell = newSell()); }
+  // A purchase can be sold back only while it is still the exact item bought this round and its ammo is untouched.
+  sellableWeapon(p, slot) {
+    const rec = this.sellOf(p).w[slot], it = p.w[slot];
+    if (!rec || !it || rec.ref !== it) return null;
+    const w = WEAPONS[it.k]; if (!w || it.mag !== w.mag || it.res !== w.res) return null;
+    return rec;
+  }
+  sellView(p) {
+    const sl = this.sellOf(p), o = {};
+    for (const slot of [1, 2]) { const r = this.sellableWeapon(p, slot); if (r) o[slot] = r.price; }
+    const g = {}; let any = false;
+    for (const k of NADES) { const n = Math.min(p.g[k] || 0, sl.g[k] || 0); if (n > 0) { g[k] = n; any = true; } }
+    if (any) o.g = g;
+    if (sl.gear.vesthelm && p.armor >= 100 && p.helmet) o.vesthelm = sl.gear.vesthelm.price;
+    if (sl.gear.vest && p.armor >= 100) o.vest = sl.gear.vest.price;
+    if (sl.gear.kit && p.kit) o.kit = sl.gear.kit.price;
+    return o;
+  }
+  sell(p, item) {
+    const gate = this.buyGate(p); if (gate) return gate;
+    const sl = this.sellOf(p), w = WEAPONS[item], now = Date.now();
+    const refund = (n) => { p.money = Math.min(ECON.max, p.money + n); p.youDirty = true; this.rosterDirty = true; return { ok: true, price: n }; };
+    if (w && w.nade) {
+      if (Math.min(p.g[item] || 0, sl.g[item] || 0) <= 0) return { ok: false, error: 'Only grenades bought this round can be sold' };
+      p.g[item]--; sl.g[item]--;
+      if (p.gk === item && p.g[item] <= 0) { const nx = firstNade(p.g, item); p.gk = nx || null; if (!nx && p.active === 4) { p.active = this.bestSlot(p); p.drawEnd = now + 400; } }
+      return refund(w.price);
+    }
+    if (w && !w.melee && w.mag > 0 && w.slot !== 5) {
+      const slot = w.slot, it = p.w[slot];
+      if (!it || it.k !== item) return { ok: false, error: 'You do not have this weapon' };
+      const rec = this.sellableWeapon(p, slot);
+      if (!rec) return { ok: false, error: sl.w[slot] && sl.w[slot].ref === it ? 'Weapon already used' : 'Only weapons bought this round can be sold' };
+      delete sl.w[slot]; p.w[slot] = null;
+      // Put back the weapon this purchase replaced, if it is still lying where it was dropped.
+      if (rec.prev && rec.dropId != null && this.drops.has(rec.dropId)) {
+        this.drops.delete(rec.dropId); p.w[slot] = rec.prev; if (rec.prevRec) sl.w[slot] = rec.prevRec;
+        this.broadcast('drops', [...this.drops.values()]);
+      }
+      if (!p.w[2]) p.w[2] = newWeapon(defaultPistol(p.team));
+      p.active = this.bestSlot(p); p.drawEnd = now + 400; p.reloadEnd = 0; p.scoped = 0; p.shots = 0;
+      return refund(rec.price);
+    }
+    if (item === 'vest') {
+      const r = sl.gear.vest; if (!r) return { ok: false, error: 'Only gear bought this round can be sold' };
+      if (p.armor < 100) return { ok: false, error: 'Armor is damaged' };
+      p.armor = r.armorBefore; delete sl.gear.vest; return refund(r.price);
+    }
+    if (item === 'vesthelm') {
+      const r = sl.gear.vesthelm; if (!r) return { ok: false, error: 'Only gear bought this round can be sold' };
+      if (p.armor < 100 || !p.helmet) return { ok: false, error: 'Armor is damaged' };
+      p.armor = r.armorBefore; p.helmet = r.helmetBefore; delete sl.gear.vesthelm; return refund(r.price);
+    }
+    if (item === 'kit') {
+      const r = sl.gear.kit; if (!r || !p.kit) return { ok: false, error: 'Only gear bought this round can be sold' };
+      p.kit = false; delete sl.gear.kit; return refund(r.price);
+    }
+    return { ok: false, error: 'Unknown item' };
+  }
+  buy(p, item) {
+    const now = Date.now();
+    const gate = this.buyGate(p); if (gate) return gate;
     const w = WEAPONS[item];
     const limit = this.weaponLimits[item] || 0; if (w && limit > 0) { const same=this.team(p.team).filter(q=>q.w[1]?.k===item).length; if(same >= limit && p.w[1]?.k !== item) return {ok:false,error:`${item.toUpperCase()} limit reached`}; }
     if (w && !w.nade && !w.melee && w.mag > 0 && w.slot !== 5) {
@@ -329,14 +397,17 @@ export class GameRoom {
       if (p.w[w.slot] && p.w[w.slot].k === item) return { ok:false, error:'You already have this weapon' };
       const price = Number(w.price) || 0;
       if (p.money < price) return {ok:false,error:'Not enough money'};
-      p.money -= price; if (p.w[w.slot]) { const [x,y,z]=this.dropPoint(p,0.8); this.addDrop(p.w[w.slot].k,p.w[w.slot],x,y,z,p.id); }
-      p.w[w.slot]=newWeapon(item); p.active=w.slot; p.drawEnd=now+(w.draw||0.5)*1000; p.reloadEnd=0; p.scoped=0; p.youDirty=true; this.rosterDirty=true; return {ok:true,price};
+      p.money -= price; const sl = this.sellOf(p), old = p.w[w.slot]; let dropId = null;
+      const prevRec = old && sl.w[w.slot] && sl.w[w.slot].ref === old ? sl.w[w.slot] : null;
+      if (old) { const [x,y,z]=this.dropPoint(p,0.8); dropId = this.addDrop(old.k,old,x,y,z,p.id).id; }
+      const nw = newWeapon(item); sl.w[w.slot] = { ref: nw, price, prev: old, prevRec, dropId };
+      p.w[w.slot]=nw; p.active=w.slot; p.drawEnd=now+(w.draw||0.5)*1000; p.reloadEnd=0; p.scoped=0; p.youDirty=true; this.rosterDirty=true; return {ok:true,price};
     }
     if (w && w.nade) {
       if (p.g[item] >= w.max) return { ok: false, error: 'You cannot carry any more' };
       if (nadeCount(p.g) >= NADE_LIMIT) return { ok: false, error: 'Grenade limit reached' };
       if (p.money < w.price) return { ok: false, error: 'Not enough money' };
-      p.money -= w.price; p.g[item]++; if (!p.gk) p.gk = item;
+      p.money -= w.price; p.g[item]++; this.sellOf(p).g[item]++; if (!p.gk) p.gk = item;
       p.youDirty = true; this.rosterDirty = true; return { ok: true };
     }
     if (w && w.price) {
@@ -348,14 +419,14 @@ export class GameRoom {
       p.w[w.slot] = newWeapon(item); p.active = w.slot; p.drawEnd = now + w.draw * 1000; p.reloadEnd = 0; p.scoped = 0;
     } else if (item === 'vest') {
       if (p.armor >= 100) return { ok: false, error: 'Already wearing kevlar' };
-      if (p.money < 650) return { ok: false, error: 'Not enough money' }; p.money -= 650; p.armor = 100;
+      if (p.money < 650) return { ok: false, error: 'Not enough money' }; p.money -= 650; this.sellOf(p).gear.vest = { price: 650, armorBefore: p.armor }; p.armor = 100;
     } else if (item === 'vesthelm') {
       if (p.armor >= 100 && p.helmet) return { ok: false, error: 'Already wearing kevlar + helmet' };
       const price = p.armor >= 100 ? 350 : 1000; if (p.money < price) return { ok: false, error: 'Not enough money' };
-      p.money -= price; p.armor = 100; p.helmet = true;
+      p.money -= price; const gr = this.sellOf(p).gear, pv = gr.vest; gr.vesthelm = { price: price + (pv ? pv.price : 0), armorBefore: pv ? pv.armorBefore : p.armor, helmetBefore: p.helmet }; delete gr.vest; p.armor = 100; p.helmet = true;
     } else if (item === 'kit') {
       if (p.team !== 'CT') return { ok: false, error: 'CT only' }; if (p.kit) return { ok: false, error: 'Already have a defuse kit' };
-      if (p.money < 400) return { ok: false, error: 'Not enough money' }; p.money -= 400; p.kit = true;
+      if (p.money < 400) return { ok: false, error: 'Not enough money' }; p.money -= 400; this.sellOf(p).gear.kit = { price: 400 }; p.kit = true;
     } else return { ok: false, error: 'Unknown item' };
     p.youDirty = true; this.rosterDirty = true; return { ok: true };
   }
@@ -619,6 +690,7 @@ export class GameRoom {
       case 'st': return this.handleState(p, d);
       case 'shot': if (d && Array.isArray(d.d)) this.fire(p, Array.isArray(d.o) ? d.o.map(Number) : null, d.d.map(Number), Number(d.t), String(d.w), !!d.alt); return;
       case 'buy': { const r = this.buy(p, String(d && d.item)); if (ack) ack(r); return; }
+      case 'sell': { const r = this.sell(p, String(d && d.item)); if (ack) ack(r); return; }
       case 'reload': return this.reload(p);
       case 'sw': return this.switchSlot(p, d && d.slot | 0, d && typeof d.k === 'string' ? d.k : null);
       case 'throw': this.throwNade(p, d && Array.isArray(d.d) ? d.d.map(Number) : null, !(d && d.soft)); return;
@@ -706,7 +778,7 @@ export class GameRoom {
   }
   youPayload(p) {
     return { xp:p.rankXp, rank:p.rankName, rankTag:p.rankTag, hp: p.hp, ar: Math.round(p.armor), hm: p.helmet, kit: p.kit, money: p.money, w: { 1: p.w[1], 2: p.w[2], 3: p.w[3] }, g: { ...p.g }, gk: p.gk, a: p.active, b: p.hasBomb, al: p.alive, tm: p.team,
-      rl: p.reloadEnd ? p.reloadEnd - Date.now() : 0, nc: !!p.noclip, god: !!p.god, act: p.action ? { type: p.action.type, end: p.action.end } : null, x: p.x, z: p.z };
+      rl: p.reloadEnd ? p.reloadEnd - Date.now() : 0, nc: !!p.noclip, god: !!p.god, act: p.action ? { type: p.action.type, end: p.action.end } : null, x: p.x, z: p.z, sl: this.sellView(p) };
   }
 }
 export { calloutAt };
