@@ -1,4 +1,4 @@
-const CACHE = 'cs-dust-online-v5-cloudflare';
+const CACHE = 'cs-dust-online-v6-cs2-guns';
 const CORE = [
   '/', '/manifest.webmanifest', '/css/style.css',
   '/js/main.js', '/js/game.js', '/js/hud.js', '/js/models.js',

@@ -8,10 +8,12 @@ const mats = {};
 const mat = (k, c, r = 0.8, m = 0) => (mats[k] = mats[k] || new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: m }));
 const texCache = {};
 const hasDOM = typeof document !== 'undefined';
-function canvasTex(key, w, h, draw) {
+function canvasTex(key, w, h, draw, rep) {
   if (!hasDOM) return null; if (texCache[key]) return texCache[key];
   const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); draw(x, w, h);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true; return (texCache[key] = t);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  if (rep) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep[0], rep[1]); } // extruded profiles have UVs in metres
+  t.needsUpdate = true; return (texCache[key] = t);
 }
 const texMat = (k, map, r = 0.7, m = 0, extra = {}) => (mats[k] = mats[k] || new THREE.MeshStandardMaterial({ color: map ? '#ffffff' : '#777', map, roughness: r, metalness: m, ...extra }));
 function speckle(x, w, h, n, a) { for (let i = 0; i < n; i++) { x.fillStyle = Math.random() < 0.5 ? `rgba(0,0,0,${a})` : `rgba(255,255,255,${a * 0.6})`; x.fillRect(Math.random() * w, Math.random() * h, 2, 2); } }
@@ -71,7 +73,12 @@ function solveElbow(S, T, a, b, pole) {
 
 // ---------------------------------------------------------------- textures (canvas)
 const T = {
-  grip: () => canvasTex('grip', 64, 64, (x, w, h) => { x.fillStyle = '#26272a'; x.fillRect(0, 0, w, h); for (let i = 0; i < w; i += 4) for (let j = 0; j < h; j += 4) { x.fillStyle = (i + j) % 8 ? '#1b1c1e' : '#323336'; x.fillRect(i, j, 3, 3); } }),
+  grip: () => canvasTex('grip', 64, 64, (x, w, h) => { x.fillStyle = '#26272a'; x.fillRect(0, 0, w, h); for (let i = 0; i < w; i += 4) for (let j = 0; j < h; j += 4) { x.fillStyle = (i + j) % 8 ? '#1b1c1e' : '#323336'; x.fillRect(i, j, 3, 3); } }, [34, 34]),
+  wood: () => canvasTex('wood', 128, 128, (x, w, h) => {
+    x.fillStyle = '#8c4f25'; x.fillRect(0, 0, w, h);
+    for (let j = 0; j < h; j++) { const a = Math.sin(j * 0.55) * 0.5 + Math.sin(j * 1.7 + 2) * 0.3; x.fillStyle = a > 0 ? `rgba(255,190,120,${a * 0.14})` : `rgba(40,16,4,${-a * 0.3})`; x.fillRect(0, j, w, 1); }
+    for (let i = 0; i < 70; i++) { x.strokeStyle = `rgba(48,20,6,${0.1 + Math.random() * 0.2})`; x.lineWidth = 0.7; const y0 = Math.random() * h; x.beginPath(); x.moveTo(0, y0); for (let px = 0; px <= w; px += 16) x.lineTo(px, y0 + Math.sin(px * 0.05 + i) * 2 + (Math.random() - 0.5) * 0.8); x.stroke(); }
+  }, [3, 16]),
   he: () => canvasTex('he', 256, 128, (x, w, h) => {
     x.fillStyle = '#4a5639'; x.fillRect(0, 0, w, h); speckle(x, w, h, 900, 0.08);
     x.fillStyle = '#d9b62a'; x.fillRect(0, 22, w, 7); x.fillStyle = '#2d3523';
@@ -258,69 +265,257 @@ function makeC4(g) {
   return { led: new THREE.Vector3(0.038, dy + 0.022, cz + 0.05) };
 }
 
+// ---------------------------------------------------------------- rifles & SMGs (CS2-style side-profile builds)
+const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+function rifleMats() {
+  return {
+    steel: mat('rfsteel', '#3b3f46', 0.42, 0.42), hi: mat('rfhi', '#a2a9b2', 0.28, 0.6), dark: mat('rfdark', '#17181b', 0.5, 0.3),
+    poly: mat('rfpoly', '#2b2d32', 0.68, 0.05), poly2: mat('rfpoly2', '#42454b', 0.6, 0.08), rub: mat('rfrub', '#1b1c1e', 0.95, 0.02),
+    bore: mat('bore', '#050505', 0.9), brass: mat('brass', '#b08a3a', 0.35, 0.9),
+    dot: (mats.rfdot = mats.rfdot || new THREE.MeshStandardMaterial({ color: '#e8ffe0', emissive: '#6fe36a', emissiveIntensity: 0.7, roughness: 0.3 })),
+    grip: texMat('rfgrip', T.grip(), 0.9, 0.05), wood: texMat('rfwood', T.wood(), 0.55, 0.02),
+  };
+}
+// Picatinny-style rail: base bar + dark cross slots.
+function railSeg(g, m, z0, z1, y, w, n) {
+  const L = z0 - z1, zc = (z0 + z1) / 2; box(w, 0.007, L, m.steel, 0, y, zc, g);
+  for (let i = 0; i < n; i++) box(w + 0.0016, 0.0032, (L / n) * 0.42, m.dark, 0, y + 0.0036, z1 + (L / n) * (i + 0.5), g);
+}
+function ventSlots(g, mt, x, zs, y, h, d) { for (const z of zs) for (const s of [-1, 1]) box(0.0026, h, d, mt, s * x, y, z, g); }
+function ribBands(g, mt, x, pts, w, h) { for (const [y, z, a] of pts) for (const s of [-1, 1]) { const b = box(0.0024, h, w, mt, s * x, y, z, g); b.rotation.x = a; } }
+
+function makeAK47(g) {
+  const m = rifleMats(), steel = m.steel, wood = m.wood, P = (pts, w, mt, b) => prof(pts, w, mt, g, b), yb = 0.072;
+  const magM = mat('akmag', '#2e3034', 0.5, 0.4);
+  // receiver, trunnion, magwell
+  P([[0.09, 0.02], [0.09, 0.083], [0.074, 0.098], [-0.06, 0.104], [-0.22, 0.101], [-0.335, 0.093], [-0.335, 0.02]], 0.044, steel, 0.003);
+  P([[0.088, 0.03], [0.088, 0.012], [-0.12, 0.012], [-0.12, 0.03]], 0.05, steel, 0.003);
+  P([[-0.12, 0.03], [-0.12, -0.012], [-0.235, -0.012], [-0.235, 0.03]], 0.052, steel, 0.003);
+  P([[-0.32, 0.098], [-0.32, 0.022], [-0.375, 0.025], [-0.375, 0.094]], 0.05, steel, 0.003);
+  for (const s of [-1, 1]) { box(0.003, 0.012, 0.2, m.hi, s * 0.0225, 0.085, -0.13, g); box(0.003, 0.03, 0.006, m.dark, s * 0.0225, 0.06, -0.03, g); }
+  box(0.003, 0.008, 0.12, m.hi, 0.0235, 0.058, -0.06, g); // selector
+  cyl(0.006, 0.03, m.hi, 0.03, 0.09, -0.12, g, 'x', 8); sphere(0.0085, m.hi, 0.046, 0.09, -0.12, g, 8, 6); // charging handle
+  // trigger group
+  triggerGuard(g, steel, 0.025, -0.12, 0.022, -0.03, 0.012); const tr = box(0.006, 0.022, 0.006, m.dark, 0, 0.0, -0.045, g); tr.rotation.x = 0.28;
+  P([[0.052, 0.026], [0.064, 0.004], [0.079, -0.062], [0.084, -0.104], [0.066, -0.13], [0.034, -0.128], [0.026, -0.1], [0.016, -0.04], [0.008, 0.002], [0.008, 0.026]], 0.036, wood, 0.0045);
+  P([[0.036, -0.125], [0.07, -0.125], [0.068, -0.134], [0.033, -0.134]], 0.034, steel, 0.001);
+  // banana magazine with ribs
+  P([[-0.14, 0.03], [-0.215, 0.03], [-0.222, -0.06], [-0.246, -0.13], [-0.29, -0.195], [-0.345, -0.23], [-0.338, -0.246], [-0.268, -0.244], [-0.215, -0.19], [-0.172, -0.13], [-0.148, -0.06]], 0.04, magM, 0.003);
+  ribBands(g, m.dark, 0.0205, [[-0.04, -0.181, 0.1], [-0.085, -0.19, 0.22], [-0.13, -0.209, 0.4], [-0.175, -0.237, 0.62]], 0.075, 0.004);
+  // wooden furniture
+  P([[-0.335, 0.072], [-0.335, 0.032], [-0.352, 0.024], [-0.5, 0.026], [-0.536, 0.04], [-0.536, 0.072]], 0.05, wood, 0.004);
+  P([[-0.352, 0.072], [-0.352, 0.106], [-0.375, 0.116], [-0.54, 0.114], [-0.572, 0.098], [-0.572, 0.072]], 0.046, wood, 0.004);
+  P([[0.088, 0.09], [0.215, 0.071], [0.338, 0.058], [0.35, 0.04], [0.348, -0.03], [0.334, -0.06], [0.22, -0.016], [0.098, 0.016], [0.088, 0.02]], 0.042, wood, 0.004);
+  P([[0.337, 0.058], [0.352, 0.05], [0.352, -0.034], [0.338, -0.06]], 0.044, steel, 0.001);
+  cyl(0.0235, 0.01, steel, 0, yb, -0.541, g, 'z', 16); // handguard ferrule
+  // gas system, barrel, sights, slant brake
+  cyl(0.0105, 0.07, steel, 0, 0.1, -0.607, g, 'z', 12);
+  rbox(0.024, 0.044, 0.05, 0.004, steel, 0, 0.092, -0.625, g);
+  cyl(0.0105, 0.27, steel, 0, yb, -0.66, g, 'z', 14);
+  P([[-0.7, 0.07], [-0.7, 0.1], [-0.722, 0.134], [-0.746, 0.134], [-0.752, 0.1], [-0.752, 0.07]], 0.014, steel, 0.002);
+  for (const s of [-1, 1]) box(0.003, 0.026, 0.014, steel, s * 0.0095, 0.118, -0.735, g);
+  P([[-0.37, 0.114], [-0.37, 0.126], [-0.392, 0.13], [-0.47, 0.119], [-0.47, 0.114]], 0.016, steel, 0.002); // rear sight leaf
+  cyl(0.0148, 0.05, m.dark, 0, yb, -0.765, g, 'z', 14); cyl(0.0105, 0.01, steel, 0, yb, -0.742, g, 'z', 12);
+  for (let i = 0; i < 3; i++) for (const s of [-1, 1]) box(0.003, 0.014, 0.007, steel, s * 0.0148, yb, -0.772 - i * 0.01, g);
+  cyl(0.006, 0.004, m.bore, 0, yb, -0.791, g);
+  return { muzzle: V3(0, yb, -0.79), support: V3(0, 0.0, -0.38) };
+}
+
+function makeM4(g, sil) {
+  const m = rifleMats(), P = (pts, w, mt, b) => prof(pts, w, mt, g, b), yb = 0.068;
+  const body = mat(sil ? 'm4sbody' : 'm4body', sil ? '#3a3d43' : '#33363c', 0.5, 0.4), magM = mat('m4mag', '#34373c', 0.55, 0.35);
+  P([[0.125, 0.046], [0.125, 0.098], [0.104, 0.108], [-0.265, 0.108], [-0.265, 0.046]], 0.046, body, 0.003);
+  P([[0.125, 0.05], [0.125, 0.012], [0.068, 0.0], [-0.11, 0.0], [-0.115, -0.012], [-0.22, -0.012], [-0.225, 0.0], [-0.265, 0.012], [-0.265, 0.05]], 0.044, body, 0.003);
+  box(0.003, 0.022, 0.075, m.dark, 0.0235, 0.082, -0.03, g); box(0.0032, 0.01, 0.01, m.hi, -0.0235, 0.03, -0.17, g); // ejection port / mag release
+  P([[0.12, 0.114], [0.124, 0.127], [0.145, 0.127], [0.145, 0.114]], 0.026, m.steel, 0.002); // charging handle
+  triggerGuard(g, body, 0.03, -0.115, 0.002, -0.032, 0.012); const tr = box(0.006, 0.022, 0.006, m.dark, 0, -0.012, -0.045, g); tr.rotation.x = 0.28;
+  P([[0.058, 0.006], [0.069, -0.03], [0.086, -0.098], [0.08, -0.128], [0.048, -0.132], [0.03, -0.124], [0.028, -0.09], [0.014, -0.03], [0.004, 0.006]], 0.034, m.grip, 0.0045);
+  P([[-0.12, 0.0], [-0.19, 0.0], [-0.202, -0.08], [-0.224, -0.17], [-0.214, -0.178], [-0.146, -0.178], [-0.138, -0.08]], 0.032, magM, 0.003);
+  ribBands(g, m.dark, 0.0165, [[-0.05, -0.16, 0.05], [-0.095, -0.168, 0.12], [-0.14, -0.178, 0.2]], 0.06, 0.003);
+  P([[-0.148, -0.17], [-0.222, -0.17], [-0.215, -0.185], [-0.15, -0.185]], 0.034, m.dark, 0.001);
+  // stock
+  P([[0.125, 0.07], [0.2, 0.076], [0.345, 0.07], [0.352, 0.05], [0.352, -0.02], [0.34, -0.05], [0.3, -0.052], [0.24, -0.03], [0.2, -0.005], [0.125, 0.002]], 0.04, m.poly, 0.004);
+  P([[0.346, 0.068], [0.36, 0.06], [0.362, -0.02], [0.348, -0.048]], 0.042, m.rub, 0.001);
+  for (let i = 0; i < 4; i++) box(0.0415, 0.003, 0.01, m.dark, 0, 0.0, 0.22 + i * 0.026, g).position.y = 0.035 - i * 0.002;
+  // rail, handguard, barrel
+  railSeg(g, m, 0.12, sil ? -0.5 : -0.6, 0.111, 0.022, sil ? 14 : 17);
+  const hz = sil ? -0.5 : -0.6;
+  P([[-0.265, 0.1], [-0.265, 0.028], [-0.3, 0.022], [hz + 0.03, 0.026], [hz, 0.04], [hz, 0.092], [hz + 0.02, 0.1]], 0.052, sil ? m.poly2 : m.poly, 0.004);
+  ventSlots(g, m.dark, 0.0265, sil ? [-0.33, -0.37, -0.41, -0.45] : [-0.33, -0.375, -0.42, -0.465, -0.51, -0.555], 0.062, 0.016, 0.024);
+  cyl(0.0105, 0.22, m.steel, 0, yb, -0.7, g, 'z', 14);
+  P([[0.04, 0.114], [0.04, 0.134], [0.052, 0.14], [0.07, 0.14], [0.078, 0.134], [0.078, 0.114]], 0.016, m.steel, 0.002); // rear flip sight
+  box(0.0045, 0.006, 0.01, m.dark, 0, 0.134, 0.062, g);
+  if (!sil) {
+    P([[-0.57, 0.114], [-0.57, 0.146], [-0.58, 0.154], [-0.597, 0.154], [-0.6, 0.114]], 0.012, m.steel, 0.002); // front sight tower
+    cyl(0.0155, 0.055, m.dark, 0, yb, -0.83, g, 'z', 14);
+    for (let i = 0; i < 3; i++) for (const s of [-1, 1]) box(0.0034, 0.012, 0.008, m.steel, s * 0.0155, yb, -0.82 - i * 0.012, g);
+    cyl(0.006, 0.004, m.bore, 0, yb, -0.8585, g);
+    return { muzzle: V3(0, yb, -0.86), support: V3(0, 0.0, -0.38) };
+  }
+  // M4A1-S: long integral suppressor + threaded barrel nut
+  cyl(0.0225, 0.4, mat('m4sup', '#26282c', 0.45, 0.5), 0, yb, -0.7, g, 'z', 22);
+  for (const z of [-0.52, -0.62, -0.72, -0.82]) cyl(0.0232, 0.006, m.hi, 0, yb, z, g, 'z', 22);
+  cyl(0.0235, 0.012, m.steel, 0, yb, -0.894, g, 'z', 22); cyl(0.007, 0.004, m.bore, 0, yb, -0.9, g);
+  P([[-0.5, 0.114], [-0.5, 0.13], [-0.52, 0.134], [-0.54, 0.114]], 0.012, m.steel, 0.002);
+  return { muzzle: V3(0, yb, -0.9), support: V3(0, 0.0, -0.36) };
+}
+
+function makeAWP(g) {
+  const m = rifleMats(), P = (pts, w, mt, b) => prof(pts, w, mt, g, b), yb = 0.066;
+  const ol = mat('awpol', '#64765a', 0.55, 0.1), ol2 = mat('awpol2', '#4a5a40', 0.6, 0.1);
+  // stock, grip, forend
+  P([[0.12, 0.075], [0.2, 0.082], [0.3, 0.09], [0.4, 0.083], [0.425, 0.07], [0.43, -0.07], [0.4, -0.1], [0.33, -0.095], [0.25, -0.04], [0.12, -0.02]], 0.044, ol, 0.005);
+  P([[0.42, 0.07], [0.446, 0.06], [0.45, -0.07], [0.424, -0.08]], 0.046, m.rub, 0.002);
+  P([[0.095, 0.0], [0.11, -0.05], [0.135, -0.11], [0.1, -0.13], [0.055, -0.125], [0.045, -0.07], [0.025, 0.0]], 0.04, ol, 0.005);
+  P([[-0.1, 0.07], [-0.1, -0.01], [-0.18, -0.035], [-0.46, -0.03], [-0.52, 0.0], [-0.52, 0.036], [-0.3, 0.05]], 0.046, ol, 0.005);
+  // receiver + bolt
+  P([[0.12, 0.025], [0.12, 0.1], [0.1, 0.108], [-0.3, 0.108], [-0.3, 0.025]], 0.044, m.steel, 0.003);
+  cyl(0.017, 0.11, m.dark, 0, 0.088, 0.075, g, 'z', 14); cyl(0.0045, 0.05, m.hi, 0.04, 0.09, 0.085, g, 'x', 8); sphere(0.0125, m.hi, 0.07, 0.09, 0.085, g, 10, 8);
+  triggerGuard(g, ol, 0.02, -0.1, 0.022, -0.04, 0.012); const tr = box(0.006, 0.022, 0.006, m.dark, 0, 0.0, -0.03, g); tr.rotation.x = 0.28;
+  P([[-0.1, 0.03], [-0.1, -0.075], [-0.19, -0.075], [-0.19, 0.03]], 0.036, m.dark, 0.003); // box magazine
+  // barrel with flutes + muzzle brake
+  cyl(0.0145, 0.6, m.steel, 0, yb, -0.66, g, 'z', 16);
+  for (let i = 0; i < 6; i++) cyl(0.0152, 0.012, m.dark, 0, yb, -0.42 - i * 0.055, g, 'z', 16);
+  cyl(0.0185, 0.07, m.dark, 0, yb, -0.945, g, 'z', 16);
+  for (let i = 0; i < 3; i++) for (const s of [-1, 1]) box(0.004, 0.012, 0.01, m.bore, s * 0.0185, yb, -0.93 - i * 0.014, g);
+  cyl(0.007, 0.004, m.bore, 0, yb, -0.98, g);
+  // scope
+  const sc = mat('awpscope', '#17181a', 0.35, 0.7);
+  cyl(0.03, 0.3, sc, 0, 0.165, -0.1, g, 'z', 22); cyl(0.032, 0.07, sc, 0, 0.165, -0.285, g, 'z', 22, 0.043); cyl(0.04, 0.05, sc, 0, 0.165, 0.09, g, 'z', 22, 0.03);
+  cyl(0.0105, 0.022, m.hi, 0, 0.2, -0.1, g, 'y', 12); cyl(0.0105, 0.022, m.hi, 0.036, 0.165, -0.08, g, 'x', 12);
+  for (const z of [-0.18, -0.02]) rbox(0.03, 0.05, 0.03, 0.005, m.steel, 0, 0.13, z, g);
+  return { muzzle: V3(0, yb, -0.98), support: V3(0, 0.0, -0.34) };
+}
+
+function makeMAC10(g) {
+  const m = rifleMats(), P = (pts, w, mt, b) => prof(pts, w, mt, g, b), yb = 0.07, body = mat('macbody', '#383b41', 0.5, 0.4);
+  P([[0.1, 0.1], [0.1, 0.02], [0.075, 0.01], [-0.2, 0.01], [-0.2, 0.085], [-0.18, 0.1]], 0.05, body, 0.003);
+  P([[0.075, 0.1], [0.075, 0.116], [0.0, 0.122], [-0.15, 0.122], [-0.17, 0.1]], 0.034, m.steel, 0.003);
+  cyl(0.006, 0.05, m.hi, 0, 0.128, -0.02, g, 'x', 8); for (const s of [-1, 1]) box(0.004, 0.02, 0.012, m.dark, s * 0.012, 0.126, 0.07, g); box(0.004, 0.02, 0.012, m.dark, 0, 0.126, -0.19, g);
+  P([[0.062, 0.012], [0.075, -0.03], [0.083, -0.18], [0.025, -0.185], [0.018, -0.03], [0.008, 0.012]], 0.036, body, 0.004);
+  rbox(0.04, 0.01, 0.065, 0.002, m.dark, 0, -0.19, 0.054, g);
+  triggerGuard(g, body, 0.012, -0.07, 0.012, -0.03, 0.012); P([[-0.07, 0.012], [-0.07, -0.05], [-0.12, -0.05], [-0.12, 0.012]], 0.02, body, 0.003);
+  const tr = box(0.006, 0.02, 0.006, m.dark, 0, -0.004, -0.02, g); tr.rotation.x = 0.28;
+  cyl(0.0125, 0.12, m.steel, 0, yb, -0.26, g, 'z', 14); for (let i = 0; i < 5; i++) cyl(0.0138, 0.004, m.dark, 0, yb, -0.22 - i * 0.016, g, 'z', 14);
+  cyl(0.017, 0.03, m.dark, 0, yb, -0.285, g, 'z', 14); cyl(0.006, 0.004, m.bore, 0, yb, -0.3, g);
+  for (const s of [-1, 1]) cyl(0.0035, 0.2, m.hi, s * 0.024, 0.045, 0.17, g, 'z', 6);
+  rbox(0.062, 0.07, 0.01, 0.003, m.hi, 0, 0.045, 0.272, g);
+  return { muzzle: V3(0, yb, -0.3), support: V3(0, -0.02, -0.17) };
+}
+
+function makeMP9(g) {
+  const m = rifleMats(), P = (pts, w, mt, b) => prof(pts, w, mt, g, b), yb = 0.07;
+  P([[0.07, 0.1], [0.07, 0.02], [0.04, 0.012], [-0.25, 0.012], [-0.27, 0.06], [-0.27, 0.1], [-0.24, 0.108], [0.0, 0.108]], 0.044, m.poly, 0.004);
+  railSeg(g, m, 0.06, -0.24, 0.114, 0.02, 11);
+  P([[-0.2, 0.118], [-0.2, 0.135], [-0.212, 0.138], [-0.222, 0.118]], 0.01, m.steel, 0.002); P([[0.03, 0.118], [0.03, 0.136], [0.046, 0.14], [0.052, 0.118]], 0.012, m.steel, 0.002);
+  box(0.003, 0.02, 0.07, m.dark, 0.0225, 0.085, -0.04, g);
+  P([[0.052, 0.014], [0.063, -0.03], [0.08, -0.12], [0.074, -0.15], [0.03, -0.152], [0.018, -0.03], [0.006, 0.014]], 0.034, m.grip, 0.004);
+  rbox(0.04, 0.01, 0.07, 0.002, m.dark, 0, -0.158, 0.058, g);
+  triggerGuard(g, m.poly, 0.016, -0.08, 0.014, -0.032, 0.012); const tr = box(0.006, 0.02, 0.006, m.dark, 0, -0.002, -0.025, g); tr.rotation.x = 0.28;
+  P([[-0.105, 0.014], [-0.108, -0.07], [-0.15, -0.076], [-0.152, 0.014]], 0.026, m.poly, 0.004); // forward vertical grip
+  cyl(0.011, 0.1, m.steel, 0, yb, -0.3, g, 'z', 12); cyl(0.016, 0.04, m.dark, 0, yb, -0.325, g, 'z', 14); cyl(0.006, 0.004, m.bore, 0, yb, -0.347, g);
+  for (const s of [-1, 1]) cyl(0.0035, 0.1, m.hi, s * 0.022, 0.07, 0.12, g, 'z', 6);
+  rbox(0.056, 0.05, 0.01, 0.003, m.hi, 0, 0.07, 0.172, g);
+  return { muzzle: V3(0, yb, -0.35), support: V3(0, -0.07, -0.13) };
+}
+
+function makeP90(g) {
+  const m = rifleMats(), P = (pts, w, mt, b) => prof(pts, w, mt, g, b), top = mat('p90top', '#6a7882', 0.35, 0.4), body = mat('p90body', '#2f3237', 0.62, 0.1);
+  P([[0.19, 0.13], [-0.36, 0.13], [-0.41, 0.1], [-0.41, 0.06], [-0.34, 0.045], [-0.3, 0.005], [-0.275, -0.03], [-0.22, -0.065], [-0.15, -0.06], [-0.12, 0.0], [-0.08, 0.04], [0.09, 0.05], [0.14, 0.02], [0.19, 0.03]], 0.058, body, 0.006);
+  P([[0.17, 0.13], [0.17, 0.152], [0.1, 0.163], [-0.3, 0.163], [-0.35, 0.152], [-0.355, 0.13]], 0.05, top, 0.004); // magazine / top cover
+  P([[0.2, 0.12], [0.215, 0.1], [0.215, 0.0], [0.2, 0.03]], 0.06, m.rub, 0.003);
+  P([[0.05, 0.05], [0.06, -0.03], [0.065, -0.115], [0.025, -0.12], [0.015, -0.03], [0.008, 0.05]], 0.034, m.grip, 0.004);
+  triggerGuard(g, body, 0.012, -0.1, 0.045, -0.02, 0.012); const tr = box(0.006, 0.02, 0.006, m.dark, 0, 0.02, -0.04, g); tr.rotation.x = 0.28;
+  mesh(G('p90ring', () => new THREE.TorusGeometry(0.022, 0.0045, 8, 22)), m.steel, 0, 0.19, 0.075, g); box(0.03, 0.02, 0.05, m.steel, 0, 0.166, 0.075, g);
+  P([[-0.2, 0.166], [-0.2, 0.178], [-0.225, 0.18], [-0.24, 0.166]], 0.01, m.steel, 0.002);
+  ventSlots(g, m.dark, 0.0295, [-0.12, -0.16, -0.2, -0.24], 0.1, 0.02, 0.014);
+  cyl(0.0105, 0.1, m.steel, 0, 0.09, -0.4, g, 'z', 12); cyl(0.016, 0.07, m.dark, 0, 0.09, -0.43, g, 'z', 14); cyl(0.006, 0.004, m.bore, 0, 0.09, -0.46, g);
+  return { muzzle: V3(0, 0.09, -0.46), support: V3(0, -0.05, -0.2) };
+}
+
+function makeGalil(g) {
+  const m = rifleMats(), P = (pts, w, mt, b) => prof(pts, w, mt, g, b), yb = 0.072, fur = mat('galfur', '#59634b', 0.65, 0.08), magM = mat('galmag', '#34362f', 0.6, 0.12);
+  P([[0.09, 0.02], [0.09, 0.09], [0.07, 0.1], [-0.34, 0.1], [-0.34, 0.02]], 0.044, m.steel, 0.003);
+  P([[-0.32, 0.098], [-0.32, 0.022], [-0.375, 0.025], [-0.375, 0.094]], 0.05, m.steel, 0.003); P([[-0.12, 0.03], [-0.12, -0.012], [-0.235, -0.012], [-0.235, 0.03]], 0.05, m.steel, 0.003);
+  for (const s of [-1, 1]) { box(0.003, 0.012, 0.2, m.hi, s * 0.0225, 0.085, -0.12, g); box(0.003, 0.03, 0.006, m.dark, s * 0.0225, 0.06, -0.03, g); }
+  triggerGuard(g, m.steel, 0.025, -0.12, 0.022, -0.03, 0.012); const tr = box(0.006, 0.022, 0.006, m.dark, 0, 0.0, -0.045, g); tr.rotation.x = 0.28;
+  P([[0.052, 0.026], [0.064, 0.004], [0.079, -0.062], [0.084, -0.104], [0.066, -0.13], [0.034, -0.128], [0.026, -0.1], [0.016, -0.04], [0.008, 0.002], [0.008, 0.026]], 0.036, fur, 0.0045);
+  P([[-0.14, 0.03], [-0.215, 0.03], [-0.222, -0.06], [-0.24, -0.12], [-0.27, -0.17], [-0.3, -0.19], [-0.294, -0.205], [-0.245, -0.2], [-0.205, -0.165], [-0.172, -0.12], [-0.148, -0.06]], 0.04, magM, 0.003);
+  P([[-0.335, 0.1], [-0.335, 0.02], [-0.545, 0.026], [-0.575, 0.04], [-0.575, 0.09], [-0.55, 0.1]], 0.05, fur, 0.004);
+  ventSlots(g, m.dark, 0.0255, [-0.38, -0.42, -0.46, -0.5], 0.062, 0.03, 0.012);
+  cyl(0.0105, 0.22, m.steel, 0, yb, -0.68, g, 'z', 14); cyl(0.0105, 0.07, m.steel, 0, 0.102, -0.61, g, 'z', 12); rbox(0.022, 0.04, 0.04, 0.004, m.steel, 0, 0.092, -0.625, g);
+  P([[-0.71, 0.07], [-0.71, 0.1], [-0.726, 0.132], [-0.748, 0.132], [-0.752, 0.1], [-0.752, 0.07]], 0.014, m.steel, 0.002);
+  P([[-0.37, 0.108], [-0.37, 0.12], [-0.392, 0.124], [-0.46, 0.114], [-0.46, 0.108]], 0.014, m.steel, 0.002); P([[0.0, 0.1], [0.0, 0.115], [-0.03, 0.12], [-0.06, 0.1]], 0.018, m.steel, 0.002);
+  cyl(0.0155, 0.045, m.dark, 0, yb, -0.757, g, 'z', 14); for (let i = 0; i < 3; i++) for (const s of [-1, 1]) box(0.003, 0.012, 0.006, m.steel, s * 0.0155, yb, -0.768 - i * 0.01, g);
+  cyl(0.006, 0.004, m.bore, 0, yb, -0.78, g);
+  // skeleton stock
+  P([[0.09, 0.09], [0.34, 0.07], [0.34, 0.05], [0.09, 0.07]], 0.016, m.hi, 0.002); P([[0.09, 0.03], [0.34, -0.036], [0.34, -0.056], [0.09, 0.01]], 0.016, m.hi, 0.002);
+  P([[0.338, 0.07], [0.356, 0.062], [0.356, -0.05], [0.338, -0.058]], 0.04, m.rub, 0.002);
+  return { muzzle: V3(0, yb, -0.78), support: V3(0, 0.0, -0.38) };
+}
+
+function makeFAMAS(g) {
+  const m = rifleMats(), P = (pts, w, mt, b) => prof(pts, w, mt, g, b), yb = 0.065, ol = mat('famol', '#5e6e50', 0.6, 0.1), ol2 = mat('famol2', '#485640', 0.62, 0.1);
+  P([[0.29, 0.1], [0.3, 0.09], [0.3, 0.012], [0.282, -0.006], [-0.2, -0.006], [-0.4, 0.016], [-0.5, 0.036], [-0.5, 0.078], [-0.4, 0.09], [-0.2, 0.098], [0.2, 0.1]], 0.052, ol, 0.006);
+  P([[0.2, 0.1], [0.19, 0.135], [0.14, 0.155], [-0.12, 0.155], [-0.16, 0.135], [-0.18, 0.1]], 0.05, ol, 0.005); P([[0.15, 0.11], [0.14, 0.14], [-0.1, 0.14], [-0.12, 0.11]], 0.052, m.dark, 0.001);
+  P([[0.298, 0.098], [0.318, 0.09], [0.318, 0.0], [0.298, 0.01]], 0.05, m.rub, 0.002);
+  P([[0.012, 0.0], [0.026, -0.05], [0.036, -0.12], [-0.005, -0.125], [-0.018, -0.05], [-0.02, 0.0]], 0.036, m.grip, 0.004);
+  triggerGuard(g, ol2, -0.015, -0.1, -0.006, -0.042, 0.012); const tr = box(0.006, 0.02, 0.006, m.dark, 0, -0.012, -0.05, g); tr.rotation.x = 0.28;
+  P([[0.07, 0.0], [0.07, -0.1], [0.075, -0.165], [0.145, -0.165], [0.14, -0.1], [0.14, 0.0]], 0.032, m.poly2, 0.003);
+  ribBands(g, m.dark, 0.0165, [[-0.05, 0.108, 0], [-0.1, 0.109, 0], [-0.145, 0.11, 0]], 0.06, 0.003);
+  ventSlots(g, m.dark, 0.0285, [-0.3, -0.34, -0.38, -0.42], 0.048, 0.02, 0.018);
+  cyl(0.011, 0.3, m.steel, 0, yb, -0.67, g, 'z', 14); cyl(0.0155, 0.04, m.dark, 0, yb, -0.8, g, 'z', 14); cyl(0.006, 0.004, m.bore, 0, yb, -0.82, g);
+  P([[-0.75, 0.074], [-0.75, 0.11], [-0.762, 0.116], [-0.778, 0.116], [-0.782, 0.074]], 0.012, m.steel, 0.002);
+  for (const s of [-1, 1]) cyl(0.003, 0.14, m.hi, s * 0.03, 0.02, -0.57, g, 'z', 6);
+  return { muzzle: V3(0, yb, -0.82), support: V3(0, 0.0, -0.3) };
+}
+
+function makeSG553(g) {
+  const m = rifleMats(), P = (pts, w, mt, b) => prof(pts, w, mt, g, b), yb = 0.075, fur = mat('sgfur', '#33363b', 0.65, 0.08), tan = mat('sgtan', '#6f6a55', 0.6, 0.15);
+  P([[0.09, 0.02], [0.09, 0.098], [0.07, 0.108], [-0.34, 0.108], [-0.34, 0.02]], 0.046, m.steel, 0.003);
+  P([[-0.32, 0.104], [-0.32, 0.022], [-0.375, 0.025], [-0.375, 0.1]], 0.05, m.steel, 0.003); P([[-0.12, 0.03], [-0.12, -0.012], [-0.235, -0.012], [-0.235, 0.03]], 0.05, fur, 0.003);
+  for (const s of [-1, 1]) box(0.003, 0.012, 0.2, m.hi, s * 0.0235, 0.09, -0.12, g);
+  box(0.003, 0.02, 0.07, m.dark, 0.0245, 0.08, -0.04, g);
+  triggerGuard(g, fur, 0.025, -0.12, 0.022, -0.03, 0.012); const tr = box(0.006, 0.022, 0.006, m.dark, 0, 0.0, -0.045, g); tr.rotation.x = 0.28;
+  P([[0.056, 0.022], [0.066, 0.004], [0.08, -0.062], [0.082, -0.104], [0.064, -0.13], [0.034, -0.128], [0.026, -0.1], [0.016, -0.04], [0.008, 0.002], [0.008, 0.026]], 0.036, m.grip, 0.0045);
+  P([[-0.14, 0.03], [-0.215, 0.03], [-0.222, -0.06], [-0.24, -0.12], [-0.27, -0.17], [-0.3, -0.19], [-0.294, -0.205], [-0.245, -0.2], [-0.205, -0.165], [-0.172, -0.12], [-0.148, -0.06]], 0.04, fur, 0.003);
+  railSeg(g, m, 0.08, -0.34, 0.114, 0.022, 10);
+  P([[-0.335, 0.108], [-0.335, 0.02], [-0.55, 0.026], [-0.58, 0.04], [-0.58, 0.098], [-0.56, 0.108]], 0.05, fur, 0.004);
+  ventSlots(g, m.dark, 0.0255, [-0.38, -0.42, -0.46, -0.5, -0.54], 0.066, 0.028, 0.012);
+  cyl(0.0105, 0.24, m.steel, 0, yb, -0.7, g, 'z', 14); cyl(0.0105, 0.07, m.steel, 0, 0.108, -0.62, g, 'z', 12); rbox(0.022, 0.04, 0.045, 0.004, m.steel, 0, 0.098, -0.63, g);
+  P([[-0.7, 0.078], [-0.7, 0.108], [-0.718, 0.134], [-0.74, 0.134], [-0.744, 0.108], [-0.744, 0.078]], 0.014, m.steel, 0.002);
+  cyl(0.0155, 0.07, m.dark, 0, yb, -0.805, g, 'z', 14); for (let i = 0; i < 4; i++) for (const s of [-1, 1]) box(0.003, 0.012, 0.007, m.steel, s * 0.0155, yb, -0.78 - i * 0.012, g);
+  cyl(0.006, 0.004, m.bore, 0, yb, -0.84, g);
+  // optic
+  const sc = mat('sgscope', '#17181a', 0.35, 0.7); cyl(0.0185, 0.15, sc, 0, 0.152, -0.15, g, 'z', 18); cyl(0.0185, 0.04, sc, 0, 0.152, -0.245, g, 'z', 18, 0.026); cyl(0.027, 0.03, sc, 0, 0.152, -0.06, g, 'z', 18, 0.0185);
+  for (const z of [-0.2, -0.1]) rbox(0.024, 0.03, 0.022, 0.004, m.steel, 0, 0.125, z, g);
+  // skeleton stock
+  P([[0.09, 0.094], [0.34, 0.074], [0.34, 0.054], [0.09, 0.074]], 0.016, m.hi, 0.002); P([[0.09, 0.03], [0.34, -0.04], [0.34, -0.06], [0.09, 0.01]], 0.016, m.hi, 0.002);
+  P([[0.338, 0.074], [0.356, 0.066], [0.356, -0.054], [0.338, -0.062]], 0.04, m.rub, 0.002);
+  return { muzzle: V3(0, yb, -0.84), support: V3(0, 0.0, -0.38) };
+}
+
+function makeAUG(g) {
+  const m = rifleMats(), P = (pts, w, mt, b) => prof(pts, w, mt, g, b), yb = 0.07, ol = mat('augol', '#62724f', 0.6, 0.08), ol2 = mat('augol2', '#4a5840', 0.62, 0.08), mag = mat('augmag', '#4f565e', 0.3, 0.15);
+  P([[0.27, 0.105], [0.28, 0.095], [0.28, 0.0], [0.25, -0.012], [-0.35, -0.012], [-0.45, 0.018], [-0.45, 0.082], [-0.35, 0.098], [-0.2, 0.105]], 0.054, ol, 0.006);
+  P([[0.12, 0.105], [0.12, 0.15], [0.09, 0.175], [-0.1, 0.175], [-0.13, 0.15], [-0.13, 0.105]], 0.052, m.dark, 0.005); // integral optic
+  cyl(0.022, 0.03, m.dark, 0, 0.15, -0.14, g, 'z', 18); cyl(0.0165, 0.004, mat('auglens', '#2a4a6a', 0.1, 0.9), 0, 0.15, -0.157, g, 'z', 18);
+  P([[0.1, 0.175], [0.08, 0.186], [-0.08, 0.186], [-0.1, 0.175]], 0.034, m.steel, 0.003);
+  P([[0.278, 0.103], [0.298, 0.095], [0.298, 0.0], [0.278, 0.008]], 0.052, m.rub, 0.002);
+  P([[0.012, 0.0], [0.026, -0.05], [0.036, -0.12], [-0.005, -0.125], [-0.018, -0.05], [-0.02, 0.0]], 0.036, m.grip, 0.004);
+  triggerGuard(g, ol2, -0.015, -0.1, -0.012, -0.045, 0.012); const tr = box(0.006, 0.02, 0.006, m.dark, 0, -0.016, -0.05, g); tr.rotation.x = 0.28;
+  P([[0.07, -0.012], [0.07, -0.1], [0.076, -0.168], [0.15, -0.168], [0.142, -0.1], [0.14, -0.012]], 0.034, mag, 0.003); // translucent-look mag
+  P([[-0.24, -0.012], [-0.24, -0.1], [-0.3, -0.105], [-0.3, -0.012]], 0.028, ol2, 0.004); // forward vertical grip
+  ventSlots(g, m.dark, 0.0295, [-0.34, -0.37, -0.4], 0.05, 0.02, 0.014);
+  cyl(0.0105, 0.34, m.steel, 0, yb, -0.62, g, 'z', 14); cyl(0.0155, 0.05, m.dark, 0, yb, -0.805, g, 'z', 14); cyl(0.006, 0.004, m.bore, 0, yb, -0.83, g);
+  for (let i = 0; i < 3; i++) for (const s of [-1, 1]) box(0.003, 0.012, 0.008, m.steel, s * 0.0155, yb, -0.795 - i * 0.012, g);
+  P([[-0.72, 0.074], [-0.72, 0.104], [-0.732, 0.11], [-0.748, 0.11], [-0.752, 0.074]], 0.012, m.steel, 0.002);
+  return { muzzle: V3(0, yb, -0.83), support: V3(0, -0.06, -0.27) };
+}
+
 // ---------------------------------------------------------------- weapons
 const PISTOLS = new Set(['glock', 'usp', 'deagle']), NADE_KEYS = new Set(['he', 'flash', 'smoke']);
 const RIFLES = new Set(['ak47','m4a4','awp','mac10','mp9','p90','galil','famas','m4a1s','sg553','aug']);
-function addGunSurfaceDetail(k, g, matsIn) {
-  if (!RIFLES.has(k)) return;
-  const { blk, gun, wood, wood2, olive, poly, silver } = matsIn;
-  const rail = mat('detailRail', '#17191c', 0.28, 0.82);
-  const railHi = mat('detailRailHi', '#5b6067', 0.22, 0.9);
-  const dark = mat('detailDark', '#111316', 0.38, 0.7);
-  const rubber = mat('detailRubber', '#171819', 0.92, 0.03);
-  const brass = mat('detailBrass', '#8a6b36', 0.3, 0.72);
-  const groove = mat('detailGroove', '#090a0c', 0.45, 0.5);
-  const r = (w,h,d,m,x,y,z,rad=0.003) => rbox(w,h,d,rad,m,x,y,z,g);
-  const b = (w,h,d,m,x,y,z) => box(w,h,d,m,x,y,z,g);
-  const c = (rr,len,m,x,y,z,axis='z',seg=12) => cyl(rr,len,m,x,y,z,g,axis,seg);
-  // Receiver seams and hardware make the silhouette read as a manufactured firearm rather than a block.
-  r(0.062,0.008,0.29,0.003, rail, 0, 0.112, -0.18);
-  for (let z=-0.29; z<=-0.05; z+=0.045) b(0.006,0.004,0.020, railHi, -0.028, 0.118, z);
-  for (let z=-0.29; z<=-0.05; z+=0.045) b(0.006,0.004,0.020, railHi, 0.028, 0.118, z);
-  // Front/rear sight blocks.
-  b(0.018,0.018,0.026,dark,0,0.125,-0.49);
-  b(0.010,0.028,0.016,silver,0,0.143,-0.49);
-  b(0.020,0.016,0.020,dark,0,0.122,-0.16);
-  // Trigger guard + trigger.
-  const guard = new THREE.Mesh(new THREE.TorusGeometry(0.026,0.004,5,14,Math.PI), dark); guard.rotation.x=Math.PI/2; guard.position.set(0,-0.018,0.02); guard.scale.set(1,0.72,1); guard.castShadow=true; g.add(guard);
-  b(0.006,0.018,0.010,silver,0,-0.014,0.018);
-  // Magazine face/ribs, kept separate from the base magazine.
-  if (k !== 'p90') {
-    for (let z=-0.235; z<=-0.115; z+=0.028) b(0.046,0.004,0.006,groove,0,-0.147,z);
-    b(0.050,0.010,0.012,brass,0,-0.154,-0.246);
-  }
-  // Barrel crown / muzzle hardware.
-  const muzzleZ = ({ak47:-0.79,m4a4:-0.86,awp:-0.98,mac10:-0.30,mp9:-0.35,p90:-0.46,galil:-0.78,famas:-0.82,m4a1s:-0.90,sg553:-0.84,aug:-0.83})[k] ?? -0.7;
-  c(0.017,0.026,dark,0,0.075,muzzleZ-0.008,'z',16);
-  c(0.012,0.030,silver,0,0.075,muzzleZ-0.028,'z',12);
-  // Small side pins / fasteners.
-  for (const x of [-0.031,0.031]) c(0.0035,0.004,railHi,x,0.074,-0.08,'z',10);
-  // Distinctive wood/handguard texture strips for wooden rifles.
-  if (k==='ak47' || k==='galil') {
-    for (let z=-0.50; z<=-0.34; z+=0.04) b(0.046,0.004,0.008,wood2,0,0.078,z);
-    b(0.050,0.006,0.012,wood,0,0.078,-0.43);
-  }
-  // Polymer/metal handguard ribs on modern rifles.
-  if (k==='m4a4' || k==='m4a1s' || k==='famas' || k==='sg553' || k==='aug' || k==='mp9') {
-    for (let z=-0.48; z>=-0.66; z-=0.045) b(0.074,0.006,0.012,rubber,0,0.045,z);
-  }
-  // Bolt/charging handle and a compact ejection-port detail.
-  const side = k==='awp' ? 0.034 : -0.034;
-  r(0.016,0.008,0.055,dark,side,0.095,-0.08,0.002);
-  b(0.010,0.012,0.035,silver,side*1.05,0.098,-0.105);
-  if (k==='awp') {
-    // More convincing scope body and mounts.
-    c(0.026,0.30,dark,0,0.145,-0.17,'z',20);
-    c(0.034,0.018,railHi,0,0.145,-0.30,'z',16);
-    c(0.034,0.018,railHi,0,0.145,-0.03,'z',16);
-    b(0.010,0.018,0.035,dark,0.034,0.13,-0.16);
-  }
-  // Stock butt/shoulder pad for rifles that had an overly boxy rear.
-  if (k==='ak47' || k==='m4a4' || k==='galil' || k==='famas' || k==='m4a1s' || k==='sg553' || k==='aug') {
-    r(0.070,0.085,0.018,rubber,0,0.035,0.34,0.005);
-    b(0.050,0.040,0.010,railHi,0,0.045,0.333);
-  }
-}
 export function makeGun(k) {
   const g = new THREE.Group(); g.name = 'gun:' + k;
   const blk = mat('blk', '#2a2d31', 0.45, 0.55), gun = mat('gunm', '#3a3e44', 0.38, 0.65), wood = mat('wood', '#7b4a22', 0.65), wood2 = mat('wood2', '#5d3417', 0.7);
@@ -328,43 +523,17 @@ export function makeGun(k) {
   let muzzle = new THREE.Vector3(0, 0.05, -0.5), support = null, led = null;
   const S = (x, y, z) => new THREE.Vector3(x, y, z);
   switch (k) {
-    case 'ak47':
-      box(0.055, 0.075, 0.42, gun, 0, 0.06, -0.12, g); box(0.05, 0.05, 0.22, wood, 0, 0.045, -0.42, g); cyl(0.013, 0.32, blk, 0, 0.075, -0.62, g);
-      box(0.04, 0.03, 0.06, blk, 0, 0.1, -0.74, g); box(0.045, 0.13, 0.05, wood2, 0, -0.05, 0.02, g).rotation.x = 0.35;
-      { const magA = box(0.04, 0.2, 0.07, mat('akmag', '#6a3c1a', 0.6), 0, -0.05, -0.2, g); magA.rotation.x = -0.35; }
-      box(0.05, 0.08, 0.26, wood, 0, 0.02, 0.2, g).rotation.x = 0.12; muzzle.set(0, 0.075, -0.79); support = S(0, 0.0, -0.3); break;
-    case 'm4a4':
-      box(0.055, 0.08, 0.4, blk, 0, 0.06, -0.12, g); box(0.06, 0.06, 0.24, poly, 0, 0.05, -0.42, g); cyl(0.012, 0.3, blk, 0, 0.07, -0.66, g);
-      box(0.02, 0.05, 0.25, blk, 0, 0.125, -0.1, g); box(0.035, 0.18, 0.06, blk, 0, -0.06, -0.18, g); box(0.045, 0.12, 0.05, poly, 0, -0.05, 0.03, g).rotation.x = 0.3;
-      box(0.045, 0.07, 0.24, poly, 0, 0.04, 0.2, g); cyl(0.02, 0.06, blk, 0, 0.07, -0.83, g); muzzle.set(0, 0.07, -0.86); support = S(0, 0.0, -0.3); break;
-    case 'awp':
-      box(0.06, 0.085, 0.5, olive, 0, 0.05, -0.1, g); cyl(0.016, 0.62, blk, 0, 0.07, -0.66, g); cyl(0.032, 0.36, blk, 0, 0.15, -0.12, g);
-      cyl(0.04, 0.05, blk, 0, 0.15, -0.31, g); cyl(0.036, 0.05, blk, 0, 0.15, 0.07, g); box(0.05, 0.13, 0.06, olive, 0, -0.05, 0.03, g).rotation.x = 0.3;
-      box(0.05, 0.1, 0.3, olive, 0, 0.03, 0.26, g); box(0.035, 0.11, 0.06, blk, 0, -0.04, -0.16, g); muzzle.set(0, 0.07, -0.98); support = S(0, 0.0, -0.28); break;
-    case 'mac10':
-      box(0.05, 0.1, 0.22, blk, 0, 0.05, -0.08, g); box(0.035, 0.2, 0.04, blk, 0, -0.07, -0.02, g); cyl(0.012, 0.1, blk, 0, 0.07, -0.24, g);
-      box(0.02, 0.02, 0.18, silver, 0, 0.09, 0.08, g); muzzle.set(0, 0.07, -0.3); support = S(0, 0.0, -0.17); break;
-    case 'mp9':
-      box(0.05, 0.09, 0.28, poly, 0, 0.05, -0.1, g); box(0.04, 0.16, 0.045, poly, 0, -0.06, 0.0, g).rotation.x = 0.2; box(0.03, 0.12, 0.04, blk, 0, -0.06, -0.12, g);
-      cyl(0.011, 0.1, blk, 0, 0.07, -0.29, g); box(0.025, 0.04, 0.16, poly, 0, 0.04, 0.12, g); muzzle.set(0, 0.07, -0.35); support = S(0, -0.07, -0.12); break;
-    case 'p90':
-      box(0.06, 0.1, 0.36, poly, 0, 0.08, -0.1, g); box(0.08, 0.045, 0.3, mat('p90top', '#56616a', 0.35, 0.7), 0, 0.145, -0.12, g);
-      box(0.035, 0.18, 0.05, blk, 0, -0.06, 0.04, g); box(0.04, 0.12, 0.05, poly, 0, -0.04, -0.2, g); cyl(0.012, 0.14, blk, 0, 0.09, -0.38, g); muzzle.set(0, 0.09, -0.46); support = S(0, -0.05, -0.2); break;
-    case 'galil':
-      box(0.055, 0.08, 0.42, olive, 0, 0.06, -0.12, g); box(0.045, 0.05, 0.22, wood, 0, 0.045, -0.45, g);
-      cyl(0.013, 0.28, blk, 0, 0.075, -0.65, g); box(0.04, 0.15, 0.06, poly, 0, -0.04, -0.18, g).rotation.x = -0.25; muzzle.set(0, 0.075, -0.78); support = S(0, 0.0, -0.32); break;
-    case 'famas':
-      box(0.06, 0.085, 0.4, poly, 0, 0.065, -0.1, g); box(0.07, 0.055, 0.28, gun, 0, 0.105, -0.36, g);
-      box(0.04, 0.19, 0.06, blk, 0, -0.05, -0.18, g); cyl(0.012, 0.27, blk, 0, 0.09, -0.68, g); muzzle.set(0, 0.09, -0.82); support = S(0, 0.05, -0.3); break;
-    case 'm4a1s':
-      box(0.055, 0.08, 0.4, blk, 0, 0.06, -0.12, g); box(0.045, 0.06, 0.3, poly, 0, 0.05, -0.47, g);
-      cyl(0.025, 0.32, blk, 0, 0.07, -0.72, g); box(0.035, 0.16, 0.06, poly, 0, -0.05, -0.18, g); muzzle.set(0, 0.07, -0.9); support = S(0, 0.0, -0.3); break;
-    case 'sg553':
-      box(0.06, 0.09, 0.44, olive, 0, 0.06, -0.1, g); box(0.065, 0.06, 0.16, gun, 0, 0.15, -0.2, g);
-      box(0.04, 0.16, 0.06, blk, 0, -0.05, -0.18, g).rotation.x = -0.25; cyl(0.013, 0.3, blk, 0, 0.08, -0.68, g); muzzle.set(0, 0.08, -0.84); support = S(0, 0.0, -0.3); break;
-    case 'aug':
-      box(0.07, 0.1, 0.42, olive, 0, 0.06, -0.1, g); box(0.07, 0.07, 0.22, mat('augtop', '#66714c', 0.4, 0.45), 0, 0.15, -0.2, g);
-      box(0.045, 0.18, 0.06, poly, 0, -0.06, -0.14, g); cyl(0.013, 0.28, blk, 0, 0.09, -0.68, g); muzzle.set(0, 0.09, -0.83); support = S(0, 0.0, -0.3); break;
+    case 'ak47': ({ muzzle, support } = makeAK47(g)); break;
+    case 'm4a4': ({ muzzle, support } = makeM4(g, false)); break;
+    case 'm4a1s': ({ muzzle, support } = makeM4(g, true)); break;
+    case 'awp': ({ muzzle, support } = makeAWP(g)); break;
+    case 'mac10': ({ muzzle, support } = makeMAC10(g)); break;
+    case 'mp9': ({ muzzle, support } = makeMP9(g)); break;
+    case 'p90': ({ muzzle, support } = makeP90(g)); break;
+    case 'galil': ({ muzzle, support } = makeGalil(g)); break;
+    case 'famas': ({ muzzle, support } = makeFAMAS(g)); break;
+    case 'sg553': ({ muzzle, support } = makeSG553(g)); break;
+    case 'aug': ({ muzzle, support } = makeAUG(g)); break;
     case 'deagle': ({ muzzle, support } = makeDeagle(g)); break;
     case 'usp': ({ muzzle, support } = makeUSP(g)); break;
     case 'glock': ({ muzzle, support } = makeGlock(g)); break;
@@ -422,7 +591,6 @@ export function makeGun(k) {
     case 'c4': ({ led } = makeC4(g)); muzzle.set(0, 0, -0.2); break;
     default: box(0.05, 0.08, 0.3, gun, 0, 0.05, -0.1, g);
   }
-  addGunSurfaceDetail(k, g, { blk, gun, wood, wood2, olive, poly, silver });
   if (NADE_KEYS.has(k)) g.children.forEach((c) => { c.position.z -= 0.035; c.position.y += 0.02; }); // sit in the palm, slightly ahead of the grip point
   g.userData.muzzle = muzzle; g.userData.support = support; if (led) g.userData.led = led;
   g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
