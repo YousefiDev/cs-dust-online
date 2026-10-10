@@ -1,0 +1,3 @@
+Audio assets in this folder were converted from the user-provided CS2_WAV.zip.
+WAV sources were encoded as mono OGG Vorbis at 24/32 kHz to reduce size.
+The supplied archive contains player/physics/items/buttons audio, but no weapon fire/reload recordings or C4 beep/plant/defuse sequences. Those unavailable events keep the game's procedural WebAudio fallback; no old bundled weapon samples are retained.
