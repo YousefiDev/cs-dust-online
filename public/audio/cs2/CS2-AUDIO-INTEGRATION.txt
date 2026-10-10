@@ -1,0 +1,10 @@
+# CS2 audio integration
+
+This build wires real WAV samples extracted from the user's CS2_WAV archive into the existing web game's audio manifest.
+
+- `public/audio/cs2/manifest.json` maps game sound events to selected real CS2 WAV files.
+- `public/audio/cs2/real_*.wav` are the selected samples used by current game sound keys.
+- `public/audio/cs2/source/weapons/` contains the other extracted WAV files for future mapping.
+- Sounds that do not have a matching extracted sample in the archive continue to use the project's existing generated/fallback audio.
+
+The web game's existing `public/js/audio.js` loads this manifest via Web Audio API. Run the project using its normal local/server instructions; opening `index.html` directly may prevent fetch() from loading audio assets.
