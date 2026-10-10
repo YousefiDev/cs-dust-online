@@ -45,11 +45,18 @@ export class Sound {
     for (let ch = 0; ch < 2; ch++) { const x = ir.getChannelData(ch); let lp = 0; for (let i = 0; i < rl; i++) { lp += ((Math.random() * 2 - 1) - lp) * (0.6 - 0.5 * i / rl); x[i] = lp * Math.pow(1 - i / rl, 3.2) * 2.2; } }
     this.revIn = c.createGain(); const conv = c.createConvolver(); conv.buffer = ir; const wet = c.createGain(); wet.gain.value = 0.55;
     this.revIn.connect(conv); conv.connect(wet); wet.connect(this.master);
-    // Use the movement/footstep samples bundled with the supplied CS2_WAV pack.
-    // Keep the previous local footsteps as a fallback if a CS2 sample cannot load.
+    // Authentic CS2 surface-specific footsteps extracted from sounds/player/footsteps.
+    // Load every available material group; never substitute weapon movement sounds.
+    this.stepMaterials = new Map();
     const loadStep = (url) => fetch(url).then((r) => { if (!r.ok) throw new Error(`Missing step sample: ${url}`); return r.arrayBuffer(); }).then((a) => this.ctx.decodeAudioData(a));
-    Promise.all([1, 2, 3].map((i) => loadStep(`/audio/cs2/source/weapons/movement${i}.wav`)))
-      .then((buffers) => { this.steps = buffers; })
+    fetch('/audio/cs2/footsteps/manifest.json').then((r) => { if (!r.ok) throw new Error('Footstep manifest missing'); return r.json(); })
+      .then(async (manifest) => {
+        await Promise.all(Object.entries(manifest).map(async ([material, files]) => {
+          const buffers = (await Promise.all(files.map((f) => loadStep(`/audio/cs2/footsteps/${f}`).catch(() => null)))).filter(Boolean);
+          if (buffers.length) this.stepMaterials.set(material, buffers);
+        }));
+        this.steps = this.stepMaterials.get('concrete') || this.stepMaterials.get('dirt') || [];
+      })
       .catch(() => Promise.all([1, 2, 3, 4, 5, 6].map((i) => loadStep(`/audio/footstep_${i}.wav`).catch(() => null)))
         .then((buffers) => { this.steps = buffers.filter(Boolean); }));
     this.loadSamples();
@@ -164,9 +171,24 @@ export class Sound {
     this.tone(o, t, 140, 0.25, 'sine', 0.6, 60); this.noiseBurst(o, t, 0.25, 850, 0.7, 'lowpass', 0.45); this.noiseBurst(o, t + 0.05, 0.9, 3000, 0.5, 'bandpass', 0.14, 1, 0.08, 0.6);
   }
   ring(amount = 1) { if (!this.ctx) return; const h = this.playSample('ring', null, 0.9 * Math.min(1, amount), 0); if (h) { const t0 = this.ctx.currentTime, g = h.gain.gain; g.setValueAtTime(0.9 * Math.min(1, amount), t0); g.setValueAtTime(0.9 * Math.min(1, amount), t0 + 0.2 + amount * 1.2); g.linearRampToValueAtTime(0.0001, t0 + 0.8 + amount * 2.6); return; } const t = this.ctx.currentTime; this.tone(this.out(null, 0.35), t, 1100, 0.35 + amount * 0.7, 'sine', 0.2, 300); }
-  step(pos, gain = 0.5) {
-    if (!this.ctx || !this.steps.length) return; const s = this.ctx.createBufferSource(); s.buffer = this.steps[Math.floor(Math.random() * this.steps.length)];
-    s.playbackRate.value = 0.93 + Math.random() * 0.14; s.connect(this.out(pos, gain, pos ? 0.06 : 0)); s.start();
+  step(pos, gain = 0.5, surface = 'concrete') {
+    if (!this.ctx) return;
+    const material = String(surface || 'concrete').toLowerCase();
+    const variants = {
+      wood: ['wood'], box: ['wood'], dirt: ['dirt', 'sand', 'gravel'], sand: ['sand', 'dirt', 'gravel'],
+      gravel: ['gravel', 'dirt', 'sand'], concrete: ['concrete', 'tile'], stone: ['concrete', 'tile'],
+      metal: ['metal'], grass: ['grass', 'dirt'], mud: ['mud', 'dirt'], carpet: ['carpet'],
+      glass: ['glass'], plastic: ['plastic'], tile: ['tile', 'concrete'], snow: ['snow']
+    };
+    let list = null;
+    for (const key of (variants[material] || ['concrete', 'dirt'])) {
+      const candidate = this.stepMaterials && this.stepMaterials.get(key);
+      if (candidate && candidate.length) { list = candidate; break; }
+    }
+    list = list || this.steps;
+    if (!list || !list.length) return;
+    const s = this.ctx.createBufferSource(); s.buffer = list[Math.floor(Math.random() * list.length)];
+    s.playbackRate.value = 0.96 + Math.random() * 0.08; s.connect(this.out(pos, gain, pos ? 0.06 : 0)); s.start();
   }
   // ---- bomb ----
   beep(pos, hi = false) { // C4 countdown beep

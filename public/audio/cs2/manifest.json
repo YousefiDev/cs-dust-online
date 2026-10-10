@@ -1,65 +1,70 @@
 {
   "ak47": [
-    "real_ak47_1.wav",
-    "real_ak47_2.wav",
-    "real_ak47_3.wav",
-    "real_ak47_4.wav"
+    "source-real/weapons/ak47/ak47_01.wav",
+    "source-real/weapons/ak47/ak47_02.wav",
+    "source-real/weapons/ak47/ak47_03.wav",
+    "source-real/weapons/ak47/ak47_04.wav"
   ],
   "galil": [
-    "real_galil_1.wav",
-    "real_galil_2.wav",
-    "real_galil_3.wav"
+    "source-real/weapons/galilar/galil_01.wav",
+    "source-real/weapons/galilar/galil_02.wav",
+    "source-real/weapons/galilar/galil_03.wav",
+    "source-real/weapons/galilar/galil_04.wav"
   ],
   "sg553": [
-    "real_sg553_1.wav",
-    "real_sg553_2.wav",
-    "real_sg553_3.wav"
+    "source-real/weapons/sg556/sg556_01.wav",
+    "source-real/weapons/sg556/sg556_02.wav",
+    "source-real/weapons/sg556/sg556_03.wav",
+    "source-real/weapons/sg556/sg556_04.wav"
   ],
   "m4a4": [
-    "real_m4a4_1.wav",
-    "real_m4a4_2.wav",
-    "real_m4a4_3.wav"
+    "source-real/weapons/m4a1/m4a1_01.wav",
+    "source-real/weapons/m4a1/m4a1_02.wav",
+    "source-real/weapons/m4a1/m4a1_03.wav",
+    "source-real/weapons/m4a1/m4a1_04.wav"
   ],
   "famas": [
-    "real_famas_1.wav",
-    "real_famas_2.wav",
-    "real_famas_3.wav"
+    "source-real/weapons/famas/famas_01.wav",
+    "source-real/weapons/famas/famas_02.wav",
+    "source-real/weapons/famas/famas_03.wav"
   ],
   "aug": [
-    "real_aug_1.wav",
-    "real_aug_2.wav",
-    "real_aug_3.wav"
+    "source-real/weapons/aug/aug_01.wav",
+    "source-real/weapons/aug/aug_02.wav",
+    "source-real/weapons/aug/aug_03.wav",
+    "source-real/weapons/aug/aug_04.wav"
   ],
-  "m4a1s": "real_m4a1s_1.wav",
+  "m4a1s": "source-real/weapons/m4a1/m4a1_silencer_01.wav",
   "awp": [
-    "real_awp_1.wav",
-    "real_awp_2.wav"
+    "source-real/weapons/awp/awp_01.wav",
+    "source-real/weapons/awp/awp_02.wav"
   ],
   "mac10": [
-    "real_mac10_1.wav",
-    "real_mac10_2.wav"
+    "source-real/weapons/mac10/mac10_01.wav",
+    "source-real/weapons/mac10/mac10_02.wav"
   ],
   "mp9": [
-    "real_mp9_1.wav",
-    "real_mp9_2.wav",
-    "real_mp9_3.wav"
+    "source-real/weapons/mp9/mp9_01.wav",
+    "source-real/weapons/mp9/mp9_02.wav",
+    "source-real/weapons/mp9/mp9_03.wav",
+    "source-real/weapons/mp9/mp9_04.wav"
   ],
   "p90": [
-    "real_p90_1.wav",
-    "real_p90_2.wav"
+    "source-real/weapons/p90/p90_01.wav",
+    "source-real/weapons/p90/p90_02.wav"
   ],
   "deagle": [
-    "real_deagle_1.wav",
-    "real_deagle_2.wav"
+    "source-real/weapons/deagle/deagle_01.wav",
+    "source-real/weapons/deagle/deagle_02.wav"
   ],
   "glock": [
-    "real_glock_1.wav",
-    "real_glock_2.wav"
+    "source-real/weapons/glock18/glock_01.wav",
+    "source-real/weapons/glock18/glock_02.wav"
   ],
   "usp": [
-    "real_usp_1.wav",
-    "real_usp_2.wav",
-    "real_usp_3.wav"
+    "source-real/weapons/usp/usp_01.wav",
+    "source-real/weapons/usp/usp_02.wav",
+    "source-real/weapons/usp/usp_03.wav"
   ],
   "knife": [
     "real_knife_1.wav",
