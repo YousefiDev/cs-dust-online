@@ -10,7 +10,9 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "cf:login": "wrangler login",
-    "sync": "cp shared/*.js public/shared/"
+    "sync": "cp shared/*.js public/shared/",
+    "map2json": "node tools/map2json.cjs",
+    "bin2game": "node tools/bin2game.cjs"
   },
   "dependencies": {
     "express": "^4.21.2",
