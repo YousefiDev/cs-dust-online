@@ -1,5 +1,6 @@
 // Builds the 3D scene for a shared map: merged wall/floor geometry, crates, tunnels, doors, sky, lights.
 import * as THREE from 'three';
+import { loadMap as loadSourceMesh } from './meshMapLoader.js';
 import { WALL, WALL_TOP } from '/shared/constants.js';
 import { MAT } from '/shared/maps.js';
 import { heightAt } from '/shared/physics.js';
@@ -312,6 +313,26 @@ export function buildWorld(scene, m, opts = {}) {
     if (motes) motes.visible = !low;
     if (motes) motes.geometry.setDrawRange(0, high ? 700 : q === 'medium' ? 350 : 0);
     for (const m of Object.values(mats)) if (m?.isMeshStandardMaterial && m.normalMap) m.normalScale.set(low ? 0 : high ? 0.42 : 0.24, low ? 0 : high ? 0.42 : 0.24);
+  }
+  // Imported maps render the original JSON+BIN mesh. The procedural/grid world remains the
+  // gameplay/collision representation, but is hidden visually once the original mesh is ready.
+  if (m.def?.sourceMeshUrl) {
+    const sourceUrl = m.def.sourceMeshUrl;
+    loadSourceMesh(sourceUrl, { castShadow: opts.quality !== 'low', receiveShadow: true }).then(({ group, bounds }) => {
+      const b = bounds;
+      const sx = m.W / Math.max(0.001, b.max.x - b.min.x);
+      const sz = m.H / Math.max(0.001, b.max.z - b.min.z);
+      const scale = Math.min(sx, sz);
+      group.scale.set(scale, scale, -scale);
+      group.position.set((m.W - (b.max.x - b.min.x) * scale) / 2 - b.min.x * scale, -b.min.y * scale - (m.def.sourceGeometry?.groundRef || 0), (m.H - (b.max.z - b.min.z) * scale) / 2 + b.max.z * scale);
+      // Preserve the engine's lights; hide the fallback geometry so the original map is the visible scene.
+      for (const child of root.children) if (!child.isLight && !child.isCamera) child.visible = false;
+      root.add(group);
+      const hemiOriginal = new THREE.HemisphereLight('#e7f0ff', '#80684b', 1.65);
+      const sunOriginal = new THREE.DirectionalLight('#fff0d5', 2.1); sunOriginal.position.set(m.W * .35, 100, m.H * .6);
+      sunOriginal.castShadow = opts.quality !== 'low'; root.add(hemiOriginal, sunOriginal);
+      root.userData.originalMeshLoaded = true;
+    }).catch((e) => console.error('Original JSON/BIN mesh could not be rendered:', e));
   }
   return { root, mats, sun, sky, update, setQuality };
 }

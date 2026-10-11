@@ -41,7 +41,7 @@ function voxelize(geoms, W, H, ymax, vs, vsy, log) {
         let nxn = uy * vz - uz * vy, nyn = uz * vx - ux * vz, nzn = ux * vy - uy * vx;
         const len = Math.hypot(nxn, nyn, nzn);
         if (len < 1e-10) continue;
-        const up = (nyn * sgn) / len > 0.7 ? 1 : 2;
+        const up = (nyn * -sgn) / len > 0.7 ? 1 : 2; // converter mirrors Z into grid space, so restore the source winding sign
         const e1 = Math.hypot(ux, uy, uz), e2 = Math.hypot(vx, vy, vz), e3 = Math.hypot(vx - ux, vy - uy, vz - uz);
         const n = Math.max(1, Math.ceil(Math.max(e1, e2, e3) / ds));
         for (let i = 0; i <= n; i++) {
