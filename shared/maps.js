@@ -334,7 +334,13 @@ export function buildMap(def) {
     for (let z = Math.max(0, Math.floor(z0)); z < Math.min(H, Math.ceil(z1)); z++)
       for (let x = Math.max(0, Math.floor(x0)); x < Math.min(W, Math.ceil(x1)); x++) fn(z * W + x, x, z);
   };
-  for (const [x0, z0, x1, z1, h, mt = 1] of def.areas) each(x0 * S, z0 * S, x1 * S, z1 * S, (i) => { heights[i] = floor[i] = h; mat[i] = mt; });
+  // def.grid (tools/gltf2game.cjs): per-cell floor/ceiling decoded from RLE int16 (cm). areas then only paint the floor material.
+  if (def.grid) {
+    const dec = (b64) => { const by = typeof Buffer !== 'undefined' ? Uint8Array.from(Buffer.from(b64, 'base64')) : Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)); const v = new Int16Array(by.buffer, by.byteOffset, by.length >> 1); const out = new Int16Array(N); let k = 0; for (let i = 0; i + 1 < v.length && k < N; i += 2) for (let c = 0; c < v[i + 1] && k < N; c++) out[k++] = v[i]; return out; };
+    const hv = dec(def.grid.hr), cv = dec(def.grid.cr);
+    for (let i = 0; i < N; i++) { if (hv[i] !== 32767) { heights[i] = floor[i] = hv[i] / 100; mat[i] = 1; } if (cv[i] !== 32767) ceil[i] = cv[i] / 100; }
+  }
+  for (const [x0, z0, x1, z1, h, mt = 1] of def.areas) each(x0 * S, z0 * S, x1 * S, z1 * S, (i) => { if (def.grid) { if (heights[i] < WALL) mat[i] = mt; } else { heights[i] = floor[i] = h; mat[i] = mt; } });
   const ramps = [];
   for (const [x0, z0, x1, z1, h0, h1, axis, mt = 1] of def.ramps) {
     const r = { x0: x0 * S, z0: z0 * S, x1: x1 * S, z1: z1 * S, h0, h1, axis }; const ri = ramps.push(r) - 1;
