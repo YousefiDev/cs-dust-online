@@ -7,11 +7,13 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "dev": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public",
     "cf:login": "wrangler login",
     "sync": "cp shared/*.js public/shared/",
-    "cf:deploy": "wrangler deploy"
+    "cf:deploy": "wrangler pages deploy public",
+    "worker:dev": "wrangler dev --config wrangler.worker.toml",
+    "worker:deploy": "wrangler deploy --config wrangler.worker.toml"
   },
   "dependencies": {
     "express": "^4.21.2",

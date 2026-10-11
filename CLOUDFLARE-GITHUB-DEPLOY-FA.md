@@ -1,36 +1,22 @@
-# راه‌اندازی نسخه Cloudflare از طریق GitHub
+# راه‌اندازی ذخیرهٔ مپ در GitHub (بدون R2)
 
-## چه چیزی تغییر کرده؟
-- مسیر `POST /api/maps/custom/save` اکنون در Worker پیاده‌سازی شده و دیگر به Express/Node یا `child_process` وابسته نیست.
-- فایل‌های اصلی JSON و BIN بدون تبدیل در Cloudflare R2 نگه‌داری می‌شوند.
-- متادیتا و نقاط روی Durable Object ذخیره می‌شوند و بعد از deploy مجدد باقی می‌مانند.
-- فایل JSON اصلی از مسیر `/custom-maps/...` سرو می‌شود؛ موتور 3D همان JSON و BIN اصلی را می‌خواند.
+این نسخه فایل‌های مپ را در خود مخزن GitHub، زیر `public/maps/custom/` ذخیره می‌کند. Cloudflare Pages پس از commitها باید سایت را دوباره منتشر کند؛ ظاهرشدن فایل‌ها در سایت ممکن است چند دقیقه طول بکشد.
 
-## مرحله ۱ — ساخت R2 bucket
-1. در Cloudflare Dashboard برو به **R2 Object Storage**.
-2. یک bucket با نام دقیق `cs-dust-online-map-assets` بساز.
-3. اگر اسم دیگری انتخاب کردی، مقدار `bucket_name` در `wrangler.toml` را هم عوض کن.
+## تنظیم یک‌بارهٔ دسترسی
+1. در GitHub یک Fine-grained personal access token بساز و فقط مخزن همین بازی را انتخاب کن. دسترسی **Contents: Read and write** لازم است. توکن را در فایل‌های پروژه قرار نده.
+2. در Cloudflare → Workers & Pages → پروژه Pages → Settings → Variables and Secrets، این موارد را برای Production اضافه کن:
+   - `GITHUB_TOKEN` = توکن GitHub (به‌صورت Secret)
+   - `GITHUB_OWNER` = نام کاربری یا سازمان مالک مخزن
+   - `GITHUB_REPO` = نام مخزن
+   - `GITHUB_BRANCH` = شاخهٔ متصل به Pages، معمولاً `main`
+3. مطمئن شو Build output directory برابر `public` است و پوشهٔ `functions/` در ریشهٔ مخزن قرار دارد. سپس Deploy کن.
+4. `/api/maps/health` باید `ok: true` برگرداند.
 
-## مرحله ۲ — تنظیم GitHub/Workers
-1. commit و push فایل‌های این پروژه به repository متصل‌شده بزن.
-2. در Workers & Pages، پروژه `cs-dust-online` را باز کن و مطمئن شو build/deploy از همین repository و branch انجام می‌شود.
-3. در بخش Settings > Bindings بررسی کن R2 binding با نام `MAP_ASSETS` وجود داشته باشد؛ با `wrangler.toml` معمولاً از تنظیمات پروژه می‌آید.
-4. `GAME` Durable Object binding و migration موجود در `wrangler.toml` را حذف نکن.
-5. اگر از Dashboard برای deploy مستقیم استفاده می‌کنی، مطمئن شو پروژه به‌صورت Worker با Wrangler config deploy می‌شود؛ صرفاً آپلود static assets کافی نیست.
+## ذخیره
+در ادیتور هر دو فایل JSON و BIN را انتخاب کن و «ذخیره و ثبت مپ روی سرور» را بزن. فایل‌ها و `metadata.json` زیر `public/maps/custom/<id>/` با commitهای GitHub ثبت می‌شوند. هر commit می‌تواند انتشار Pages جدیدی راه بیندازد.
 
-## مرحله ۳ — کلید مدیریت
-اگر پنل مدیریت از `ADMIN_KEY` استفاده می‌کند، در Settings > Variables and Secrets یک secret با نام `ADMIN_KEY` تنظیم کن. این کلید برای APIهای مدیریتی است؛ endpoint ذخیره مپ فعلاً به آن وابسته نیست.
-
-## مرحله ۴ — تست بعد از deploy
-این مسیرها را در مرورگر باز کن:
-- `/health` باید JSON با `ok: true` بدهد.
-- `/api/maps/health` باید JSON با `ok: true` بدهد.
-- `/api/maps/custom` باید JSON برگرداند (در ابتدا ممکن است `{}` باشد).
-
-سپس در `/advanced-map-editor` فایل JSON و BIN اصلی را انتخاب کن و ذخیره را بزن. بعد از موفقیت، صفحه را تازه کن و فهرست مپ‌های بازی را بررسی کن.
-
-## نکته مهم درباره گیم‌پلی
-این نسخه فایل اصلی JSON/BIN را برای نمایش سه‌بعدی ذخیره می‌کند و نقاط T Spawn، CT Spawn، A/B و calloutها را در metadata قرار می‌دهد. چون مبدل فعلی `packedmap2game.cjs` به Node.js و `child_process` وابسته است و داخل Worker اجرا نمی‌شود، برخوردها/مسیر حرکت فعلاً از grid پیش‌فرض Dust II به‌عنوان fallback استفاده می‌کنند. یعنی نمایش مدل اصلی ممکن است، اما برای collision دقیقِ هر مپ جدید باید بعداً مبدل هندسه به grid به نسخه سازگار با Workers تبدیل شود.
-
-## محدودیت حجم
-Cloudflare Worker body-size limits بسته به پلن فرق می‌کند. فایل‌های حدود 64MB به‌علاوه JSON معمولاً در محدودیت 100MB پلن‌های Free/Pro جا می‌شوند، اما اگر حجم کل از حد پلن بگذرد، آپلود توسط Cloudflare رد می‌شود.
+## محدودیت‌ها
+- این روش R2 یا D1 لازم ندارد، اما فایل‌ها به‌عنوان commitهای Git در مخزن نگه‌داری می‌شوند؛ این با فضای ابری ۵ گیگابایتی عمومی و نامحدود یکی نیست.
+- این API برای آپلود مستقیم فایل‌های تا مجموع ۶۸ MiB طراحی شده است. فایل BIN بزرگ ممکن است به دلیل محدودیت‌های GitHub API/اندازهٔ درخواست یا حافظهٔ Worker شکست بخورد؛ در این صورت خطا گزارش می‌شود و ذخیره موفق اعلام نخواهد شد. برای فایل‌های باینری بزرگ‌تر، Git LFS یا ذخیره‌سازی آبجکت مناسب‌تر است.
+- ذخیرهٔ سه فایل سه commit جداگانه ایجاد می‌کند. اگر یک مرحله شکست بخورد، ممکن است فایل‌های قبلی همان مپ در مخزن باقی بمانند؛ پاسخ خطا این موضوع را گوشزد می‌کند.
+- GitHub token نباید در frontend، فایل‌های عمومی یا repository ذخیره شود.
