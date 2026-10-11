@@ -18,6 +18,3 @@ bindings = [
 tag = "v1"
 new_sqlite_classes = ["GameServer"]
 
-[[r2_buckets]]
-binding = "MAP_ASSETS"
-bucket_name = "cs-dust-online-map-assets"
