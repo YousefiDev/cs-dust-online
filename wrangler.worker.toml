@@ -1,6 +1,6 @@
 name = "cs-dust-online"
 main = "worker.js"
-compatibility_date = "2026-10-08"
+compatibility_date = "2026-10-11"
 
 [assets]
 directory = "./public"
