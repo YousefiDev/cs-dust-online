@@ -185,6 +185,9 @@ kbd{display:inline-block;min-width:24px;padding:2px 6px;margin-right:6px;border:
 .bm-item b{font:800 15px var(--f-head);letter-spacing:.03em} .bm-item span{font:600 13px var(--f-num);color:#9ee6a7}
 .bm-item small{font:500 11px var(--f-head);color:var(--sand-dim)}
 .bm-item.no{opacity:.35} .bm-item.no span{color:var(--red)} .bm-item.own{border-color:rgba(95,217,138,.5)}
+.bm-item{position:relative}
+.bm-item .bm-sell{margin-top:2px;padding:3px 8px;border:1px solid rgba(255,120,90,.6);border-radius:3px;background:rgba(255,90,60,.14);color:#ff9d86;font:800 11px var(--f-head);letter-spacing:.06em;cursor:pointer}
+.bm-item .bm-sell:hover{background:rgba(255,90,60,.32);color:#fff}
 .bm-foot{margin-top:10px;font:500 12px var(--f-head);color:var(--sand-dim);letter-spacing:.06em}
 /* scoreboard */
 #scoreboard{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(820px,94vw);background:rgba(12,10,9,.88);border:1px solid var(--line);border-radius:4px;padding:14px}

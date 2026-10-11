@@ -3,6 +3,7 @@ import { PHYS, WALL } from './constants.js';
 import { heightAt } from './physics.js';
 
 const navCache = new Map();
+export function dropNav(id) { navCache.delete(id); }
 export function getNav(m) {
   if (navCache.has(m.id)) return navCache.get(m.id);
   const { W, H } = m, N = W * H, walk = new Uint8Array(N), h = new Float32Array(N);
