@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { Server } from 'socket.io';
 import crypto from 'crypto';
 import fs from 'fs';
+import { spawn } from 'child_process';
 import { ServerCore } from './shared/core.js';
 import { TICK_RATE } from './shared/constants.js';
 
@@ -18,6 +19,28 @@ function loadAdminKey(){ if(process.env.ADMIN_KEY) return process.env.ADMIN_KEY;
 const ADMIN_KEY = loadAdminKey();
 const app = express();
 app.disable('x-powered-by');
+// Browser-only map import: users select the JSON and BIN files; the server runs the existing geometry converter.
+app.post('/api/map/auto-import', (req, res) => {
+  const ct = req.headers['content-type'] || '';
+  const match = ct.match(/boundary=(?:(?:"([^"]+)")|([^;]+))/i);
+  if (!match) return res.status(400).json({error:'فایل‌ها باید به صورت multipart ارسال شوند.'});
+  const boundary = Buffer.from('--' + (match[1] || match[2]));
+  const chunks=[]; let bytes=0;
+  req.on('data', c => { bytes += c.length; if(bytes > 150*1024*1024) { res.status(413).json({error:'حجم فایل‌ها بیش از ۱۵۰ مگابایت است.'}); req.destroy(); } else chunks.push(c); });
+  req.on('end', async () => {
+    let dir;
+    try {
+      const body=Buffer.concat(chunks), parts=[]; let pos=0;
+      while((pos=body.indexOf(boundary,pos))>=0){ pos+=boundary.length; if(body.slice(pos,pos+2).toString()==='--') break; if(body.slice(pos,pos+2).toString()==='\r\n')pos+=2; const hEnd=body.indexOf(Buffer.from('\r\n\r\n'),pos); if(hEnd<0)break; const headers=body.slice(pos,hEnd).toString('utf8'); const next=body.indexOf(boundary,hEnd+4); if(next<0)break; let data=body.slice(hEnd+4,next); if(data.slice(-2).toString()==='\r\n')data=data.slice(0,-2); const nm=headers.match(/name="([^"]+)"/i), fn=headers.match(/filename="([^"]*)"/i); if(nm&&fn)parts.push({name:nm[1],filename:path.basename(fn[1]),data}); pos=next;
+      }
+      const jf=parts.find(x=>x.filename.toLowerCase().endsWith('.json')), bf=parts.find(x=>x.filename.toLowerCase().endsWith('.bin'));
+      if(!jf||!bf) return res.status(400).json({error:'هر دو فایل dust2.json و dust2.bin را انتخاب کن.'});
+      dir=fs.mkdtempSync(path.join(os.tmpdir(),'cs-map-')); const jp=path.join(dir,'dust2.json'), bp=path.join(dir,'dust2.bin'), op=path.join(dir,'dust2_playable.json'); fs.writeFileSync(jp,jf.data); fs.writeFileSync(bp,bf.data);
+      const run=spawn(process.execPath,[path.join(root,'tools/packedmap2game.cjs'),jp,'--bin',bp,'-o',op,'--size','128','--voxel','0.5'],{cwd:root}); let logs=''; run.stdout.on('data',d=>logs+=d); run.stderr.on('data',d=>logs+=d);
+      run.on('close',code=>{ try { if(code!==0||!fs.existsSync(op))return res.status(422).json({error:'پردازش هندسه ناموفق بود.',details:logs.slice(-5000)}); const result=JSON.parse(fs.readFileSync(op,'utf8')); res.json({ok:true,map:result,report:logs.slice(-5000)}); } catch(e){res.status(500).json({error:e.message,details:logs.slice(-3000)});} finally {fs.rmSync(dir,{recursive:true,force:true});} });
+    } catch(e){if(dir)fs.rmSync(dir,{recursive:true,force:true});res.status(500).json({error:e.message});}
+  });
+});
 app.use('/shared', express.static(path.join(root, 'shared'), { maxAge: 0 }));
 app.use(express.static(path.join(root, 'public'), { maxAge: 0 }));
 app.get('/health', (_req, res) => res.json({ ok: true, uptime: Math.round(process.uptime()), ...core.stats(), servers: core.list() }));

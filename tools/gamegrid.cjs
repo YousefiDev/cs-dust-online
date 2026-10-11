@@ -9,7 +9,6 @@
 const WALL = 99;          // باید با shared/constants.js یکی باشد
 const STEP = 0.55;        // PHYS.step
 const HEIGHT = 1.8;       // PHYS.height
-const DEFAULT_THEME = { sky: '#4aa8e8', haze: '#f4c98a', sun: '#fff1c9', wall: '#e0a35a', wall2: '#c9703f', plaster: '#f2dcae', floor: '#d9b878', trim: '#7a4a2a', shutter: '#1f9fb5', cont: '#c0392b' };
 const NONE = 32767;       // مقدار «دیوار / بدون سقف» در grid فشرده
 
 // ───────────────────────── voxelization ─────────────────────────
@@ -285,4 +284,4 @@ function encodeGrid(W, H, heights, ceil) {
   return { v: 1, w: W, h: H, hr: rleInt16(h), cr: rleInt16(c) };
 }
 
-module.exports = { buildGrid, encodeGrid, WALL, DEFAULT_THEME };
+module.exports = { buildGrid, encodeGrid, WALL };

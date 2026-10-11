@@ -14,7 +14,7 @@
  *  --voxel <m>         اندازه‌ی voxel افقی (پیش‌فرض 0.25)
  */
 const fs = require('fs'), path = require('path');
-const { buildGrid, encodeGrid, DEFAULT_THEME } = require('./gamegrid.cjs');
+const { buildGrid, encodeGrid } = require('./gamegrid.cjs');
 const a = process.argv.slice(2); const o = { id: 'dust2_cs', name: 'Dust II (CS)', bounds: [-50, -101, 115, 75], ymin: -9, ymax: 37, voxel: 0.25 };
 for (let i = 0; i < a.length; i++) {
   const k = a[i];
@@ -58,6 +58,5 @@ if (o.gp) {
   const g = JSON.parse(fs.readFileSync(o.gp, 'utf8'));
   for (const k of ['theme', 'spawns', 'yaw', 'sites', 'buy', 'routes', 'holds', 'callouts', 'areas']) if (g[k]) def[k] = g[k]; // areas: فقط برای جنس کف
 } else Object.assign(def, r.gameplay);
-def.theme = def.theme || DEFAULT_THEME; // buildWorld بدون theme کرش می‌کند
 fs.writeFileSync(o.out, JSON.stringify(def));
 console.log('wrote', o.out, (fs.statSync(o.out).size / 1024).toFixed(0) + ' KB');
