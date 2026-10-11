@@ -138,6 +138,59 @@ export class GameServer {
     if (url.pathname === '/api/maps/definitions' && request.method === 'GET') return new Response(JSON.stringify(BASE_DEFS), { headers });
     if (url.pathname === '/api/maps/list' && request.method === 'GET') return new Response(JSON.stringify(Object.values(MAP_DEFS).map((d) => ({ id: d.id, name: d.name }))), { headers });
     if (url.pathname === '/api/maps/custom' && request.method === 'GET') return new Response(JSON.stringify(this.customMaps), { headers });
+    if (url.pathname === '/api/maps/custom/save' && request.method === 'POST') {
+      if (!this.env.MAP_ASSETS) return Response.json({ ok:false, error:'r2_binding_missing', message:'R2 bucket binding MAP_ASSETS تنظیم نشده است.' }, { status:503, headers });
+      let form;
+      try { form = await request.formData(); } catch { return Response.json({ ok:false, error:'invalid_multipart' }, { status:400, headers }); }
+      const files = form.getAll('files').filter(x => x && typeof x.arrayBuffer === 'function' && x.name);
+      const jf = files.find(x => x.name.toLowerCase().endsWith('.json'));
+      const bf = files.find(x => x.name.toLowerCase().endsWith('.bin'));
+      if (!jf || !bf) return Response.json({ ok:false, error:'both_json_and_bin_required', message:'هر دو فایل اصلی JSON و BIN را انتخاب کن.' }, { status:400, headers });
+      if (jf.size + bf.size > 95 * 1024 * 1024) return Response.json({ ok:false, error:'upload_too_large', message:'حجم مجموع فایل‌ها باید کمتر از ۹۵ مگابایت باشد.' }, { status:413, headers });
+      let meta;
+      try { meta = JSON.parse(await jf.text()); } catch { return Response.json({ ok:false, error:'invalid_json_file' }, { status:400, headers }); }
+      if (!Array.isArray(meta.geometries) || !Array.isArray(meta.materials) || !meta.bounds || meta.bin !== bf.name) {
+        return Response.json({ ok:false, error:'incompatible_json_bin', message:'ساختار JSON با BIN سازگار نیست؛ مقدار bin داخل JSON باید دقیقاً با نام فایل BIN یکی باشد.' }, { status:400, headers });
+      }
+      let markers;
+      try { markers = JSON.parse(String(form.get('markers') || '[]')); } catch { return Response.json({ ok:false, error:'invalid_markers' }, { status:400, headers }); }
+      if (!Array.isArray(markers) || markers.length > 500) return Response.json({ ok:false, error:'invalid_markers' }, { status:400, headers });
+      const name = String(form.get('mapName') || 'Custom Map').trim().slice(0,48) || 'Custom Map';
+      const slug = name.normalize('NFKD').replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-|-$/g,'').toLowerCase().slice(0,18) || 'map';
+      const id = ('custom-' + slug + '-' + crypto.randomUUID().slice(0,6)).slice(0,32);
+      const jsonKey = `custom-maps/${id}/${jf.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+      const binKey = `custom-maps/${id}/${bf.name.replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+      try {
+        await this.env.MAP_ASSETS.put(jsonKey, await jf.arrayBuffer(), { httpMetadata:{ contentType:'application/json', cacheControl:'public, max-age=31536000, immutable' } });
+        await this.env.MAP_ASSETS.put(binKey, await bf.arrayBuffer(), { httpMetadata:{ contentType:'application/octet-stream', cacheControl:'public, max-age=31536000, immutable' } });
+        // The original JSON+BIN pair is kept untouched in R2 and is what the 3D renderer loads.
+        // Gameplay collision uses the existing Dust II grid as a safe fallback until a Worker-compatible
+        // geometry-to-grid converter is added; marker metadata updates spawns/sites/callouts.
+        const def = structuredClone(BASE_DEFS.dust2);
+        def.id = id; def.name = name;
+        def.sourceMeshUrl = `/custom-maps/${id}/${encodeURIComponent(jf.name.replace(/[^a-zA-Z0-9._-]/g,'_'))}`;
+        def.sourceBinUrl = `/custom-maps/${id}/${encodeURIComponent(bf.name.replace(/[^a-zA-Z0-9._-]/g,'_'))}`;
+        def.originalFiles = { json:jf.name, bin:bf.name, jsonBytes:jf.size, binBytes:bf.size };
+        def.markers = markers;
+        const toGrid = m => Array.isArray(m.grid) ? m.grid.map(Number) : null;
+        const ts = markers.filter(m => m.name === 'T Spawn').map(toGrid).filter(Boolean);
+        const cts = markers.filter(m => m.name === 'CT Spawn').map(toGrid).filter(Boolean);
+        if (ts.length) def.spawns.T = ts.map(([x,z]) => [Math.max(0,Math.min(127,Math.floor(x))),Math.max(0,Math.min(127,Math.floor(z)))]);
+        if (cts.length) def.spawns.CT = cts.map(([x,z]) => [Math.max(0,Math.min(127,Math.floor(x))),Math.max(0,Math.min(127,Math.floor(z)))]);
+        const rect = m => { const [x,z] = toGrid(m) || [64,64]; return [Math.max(0,x-2),Math.max(0,z-2),Math.min(128,x+3),Math.min(128,z+3)]; };
+        for (const site of ['A Site','B Site']) { const m = markers.find(x => x.name === site); if (m) def.sites[site[0]] = rect(m); }
+        const callouts = markers.filter(m => !['T Spawn','CT Spawn','A Site','B Site'].includes(m.name)).map(m => [String(m.name || 'Marker').slice(0,48), ...rect(m)]);
+        if (callouts.length) def.callouts = callouts;
+        await this.state.storage.put('cm:' + id, def);
+        this.customMaps[id] = def;
+        this.applyCustomMaps();
+        this.broadcastEditor({ type:'maps-updated', maps:this.customMaps });
+        return Response.json({ ok:true, id, name, source:def.sourceMeshUrl, jsonBytes:jf.size, binBytes:bf.size, markers:markers.length, note:'original_pair_saved; gameplay_grid_uses_dust2_fallback' }, { headers });
+      } catch (e) {
+        console.error('[custom-map-save]', e);
+        return Response.json({ ok:false, error:'save_failed', message:String(e?.message || e) }, { status:500, headers });
+      }
+    }
     if (url.pathname === '/api/maps/save' && request.method === 'POST') {
       let body; try { body = await request.json(); } catch { return Response.json({ ok:false, error:'invalid_json' }, { status:400, headers }); }
       if (!this.env.ADMIN_KEY || body.key !== this.env.ADMIN_KEY) return Response.json({ ok:false, error:'unauthorized' }, { status:401, headers });
@@ -256,6 +309,14 @@ export default {
     // deployment/routing diagnosable without depending on the Durable Object API router.
     if (url.pathname === '/api/maps/health') {
       return Response.json({ ok: true, service: 'cs-dust-online', route: 'worker-api', authConfigured: !!env.ADMIN_KEY }, { headers });
+    }
+    if (url.pathname.startsWith('/custom-maps/') && request.method === 'GET') {
+      if (!env.MAP_ASSETS) return new Response('R2 bucket binding MAP_ASSETS is not configured', { status:503 });
+      const key = url.pathname.slice(1).split('/').map(decodeURIComponent).join('/');
+      const obj = await env.MAP_ASSETS.get(key);
+      if (!obj) return new Response('Not found', { status:404 });
+      const h = new Headers(); obj.writeHttpMetadata(h); h.set('etag', obj.httpEtag); h.set('access-control-allow-origin','*');
+      return new Response(request.method === 'HEAD' ? null : obj.body, { headers:h });
     }
     if (url.pathname === '/api/maps/auth') {
       if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers });
