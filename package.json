@@ -3,17 +3,13 @@
   "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "Counter-Strike style browser FPS on Cloudflare Workers and Durable Objects (no R2)",
+  "description": "Counter-Strike style browser FPS with authoritative Socket.IO multiplayer and server bots",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "wrangler pages dev public",
-    "deploy": "wrangler pages deploy public",
-    "cf:login": "wrangler login",
-    "sync": "cp shared/*.js public/shared/",
-    "cf:deploy": "wrangler pages deploy public",
-    "worker:dev": "wrangler dev --config wrangler.worker.toml",
-    "worker:deploy": "wrangler deploy --config wrangler.worker.toml"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "cf:login": "wrangler login"
   },
   "dependencies": {
     "express": "^4.21.2",

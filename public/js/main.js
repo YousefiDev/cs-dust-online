@@ -1,6 +1,6 @@
 // Boot: renderer, Dust II world, lobby flyover, settings, connection and the frame loop.
 import * as THREE from 'three';
-import { getMap, registerCustomMaps, MAP_DEFS } from '/shared/maps.js';
+import { getMap } from '/shared/maps.js';
 import { buildWorld } from './world.js';
 import { Sound } from './audio.js';
 import { HUD } from './hud.js';
@@ -38,7 +38,7 @@ let world = null, worldId = null;
 function loadMap(id, force = false) {
   if (worldId === id && !force) return getMap(id);
   if (world) { scene.remove(world.root); world.root.traverse((o) => { o.geometry?.dispose?.(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { m.map?.dispose?.(); m.normalMap?.dispose?.(); m.roughnessMap?.dispose?.(); m.aoMap?.dispose?.(); m.dispose?.(); }); }); }
-  const bt = document.getElementById('brand-map'); if (bt) bt.textContent = String((MAP_DEFS[id] && MAP_DEFS[id].name) || 'Dust II').toUpperCase();
+  const bt = document.getElementById('brand-map'); if (bt) bt.textContent = ({ dust2: 'DUST II', mirage: 'MIRAGE', inferno: 'INFERNO', warehouse: 'WAREHOUSE', bazaar: 'BAZAAR', arena: 'ARENA' })[id] || 'DUST II';
   const m = getMap(id); world = buildWorld(scene, m, { low: Q === 'low', quality: Q }); worldId = m.id; game && (game.map = m); return m;
 }
 let game = null;
@@ -104,9 +104,7 @@ async function ensureOnline() {
 let rejoin = null, rejoinTimer = 0;
 const sessionId = (() => { let v = localStorage.getItem('cs-session'); if (!v) { v = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36)); localStorage.setItem('cs-session', v); } return v; })();
 $('rc-leave').addEventListener('click', () => { rejoin = null; clearTimeout(rejoinTimer); game.cleanup(); showLobby(); });
-// Maps saved from the map editor live on the server; fetch them so the client builds exactly the same map the server runs.
-async function syncCustomMaps() { try { const r = await fetch('/api/maps/custom', { cache: 'no-store' }); if (!r.ok) return; const defs = await r.json(); registerCustomMaps(defs); if (!game.inRoom && settings.map && defs[settings.map]) loadMap(settings.map); const picker = document.querySelector('.seg.maps[data-name="map"]'); if (picker) for (const d of Object.values(defs)) { let b = picker.querySelector(`[data-v="${d.id}"]`); if (!b) { b = document.createElement('button'); b.dataset.v = d.id; const title = document.createElement('b'); title.textContent = String(d.name || d.id).toUpperCase(); const small = document.createElement('small'); small.textContent = 'مپ سفارشی · فایل اصلی'; b.append(title, small); picker.append(b); b.addEventListener('click', () => { settings.map = d.id; save(); picker.querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.v === d.id)); if (!game.inRoom) { loadMap(d.id); flyT = 0; } }); } } } catch (e) { console.warn('Custom maps unavailable', e); } }
-function hello() { return new Promise((res) => net.emit('hello', { name: playerName(), session: sessionId }, async (r) => { if (r && r.t && !net.offline) { game.offset = r.t - Date.now(); await syncCustomMaps(); } res(r); })); }
+function hello() { return new Promise((res) => net.emit('hello', { name: playerName(), session: sessionId }, (r) => { if (r && r.t && !net.offline) game.offset = r.t - Date.now(); res(r); })); }
 function roomRow(r) {
   const el = document.createElement('div'); el.className = 'room';
   const phase = r.phase === 'warmup' ? 'Warmup' : `Round ${r.round} · ${r.score.CT}-${r.score.T}`;
@@ -353,12 +351,5 @@ function frame(now) {
   if (game.inRoom && game.alive && game.vm && game.vm.group.visible) { renderer.clearDepth(); renderer.render(vmScene, vmCamera); }
 }
 requestAnimationFrame(frame);
-// Browsers stop requestAnimationFrame in a hidden tab. Without this the player would stop sending state and look
-// frozen (e.g. mid-jump) to everyone else, so keep ticking the simulation from a timer while hidden.
-let bgLast = performance.now();
-setInterval(() => {
-  const now = performance.now(), dt = Math.min(0.25, Math.max(0, (now - bgLast) / 1000)); bgLast = now;
-  if (document.hidden && game.inRoom) game.update(dt);
-}, 250);
 ensureOnline().then(refreshRooms).catch(() => {});
 window.__game = game; window.__three = { renderer, scene, camera };

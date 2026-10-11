@@ -191,9 +191,9 @@ export class Game {
     const show = b.state === 'planted' || b.state === 'dropped';
     this.bombMesh.visible = show; this.bombLed.visible = b.state === 'planted';
     if (show) { this.bombMesh.position.set(b.x, b.y + 0.06, b.z); this.bombMesh.rotation.set(0, 0.6, 0); }
-    if (b.state === 'planted' && prev.state !== 'planted') { this.lastBeep = 0; this.sound.planted(new THREE.Vector3(b.x, b.y + 0.2, b.z)); }
+    if (b.state === 'planted' && prev.state !== 'planted') { this.lastBeep = 0; }
     if (b.state === 'exploded' && prev.state !== 'exploded') this.explosionFx(prev.x ?? b.x, prev.y ?? b.y, prev.z ?? b.z);
-    if (b.state === 'defused' && prev.state !== 'defused') { radio('Bomb has been defused', this.settings.radio); this.sound.defused(new THREE.Vector3(b.x, b.y + 0.2, b.z)); }
+    if (b.state === 'defused' && prev.state !== 'defused') { radio('Bomb has been defused', this.settings.radio); }
   }
   onDrops(list) {
     const ids = new Set(list.map((d) => d.id));
@@ -224,15 +224,11 @@ export class Game {
     if (this.specId === e.v) this.specSwitchAt = performance.now() + 1800;
   }
   onAct(a) {
-    if (a.id === this.meId && this.you) { // show the plant/defuse bar immediately, don't wait for the next 'you' packet
-      if ((a.type === 'plant' || a.type === 'defuse') && a.end) this.you.act = { type: a.type, end: a.end };
-      else if (a.type === 'cancel') this.you.act = null;
-    }
     const r = this.remotes.get(a.id); const pos = r ? r.rig.root.position.clone() : new THREE.Vector3(this.s.x, this.s.y, this.s.z);
     if (a.type === 'plant') this.sound.keypad(pos, a.id);
     else if (a.type === 'cancel') this.sound.cancelKeypad(a.id);
-    else if (a.type === 'defuse') this.sound.defuse(pos, a.id);
-    else if (a.type === 'reload' && r) this.sound.reload(null, 2.4, pos);
+    else if (a.type === 'defuse') this.sound.defuse(pos);
+    else if (a.type === 'reload' && r) this.sound.click(0.25, 1600, pos, 0.4);
     else if (a.type === 'throw' && r) this.sound.nadeThrow(pos);
   }
   resetFrameClock() {
@@ -241,7 +237,7 @@ export class Game {
   }
   setMenuPaused(v) {
     this.menuPaused = !!v;
-    this.keys = {}; this.mouseL = false; this.mouseR = false; this.touchFire = false; this.touchFireAlt = false; this.touchJump = false; this.touchCrouch = false; this.touchMove = null;
+    this.keys = {}; this.mouseL = false; this.mouseR = false; this.touchFire = false; this.touchFireAlt = false; this.touchJump = false; this.touchCrouch = false;
     if (this.menuPaused) { this.closeMenus(); document.exitPointerLock?.(); }
     $('pause').hidden = !this.menuPaused;
   }
@@ -317,7 +313,7 @@ export class Game {
   // ---------------- local player ----------------
   activeItem() { if (!this.you) return null; if (this.you.a === 4) return this.you.gk && this.you.g ? { k: this.you.gk, mag: this.you.g[this.you.gk] || 0, res: 0, nade: true } : null; return this.you.a === 5 ? { k: 'c4' } : this.you.w[this.you.a]; }
   activeW() { const it = this.activeItem(); return it ? WEAPONS[it.k] : null; }
-  canMove() { return this.alive && !this.menuPaused && this.phase !== 'freeze' && !(this.you && this.you.act) && !this.chatOpen; }
+  canMove() { return this.alive && this.phase !== 'freeze' && !(this.you && this.you.act) && !this.chatOpen; }
   canBuy() {
     if (!this.you || !this.alive || !this.room) return false; const snow = this.serverNow();
     const t = this.phase === 'warmup' || this.phase === 'freeze' || (this.phase === 'live' && snow - this.liveStart < ROUND.buy * 1000);
@@ -349,8 +345,8 @@ export class Game {
     this.eyeH += ((s.crouch ? PHYS.crouchEye : PHYS.eye) - this.eyeH) * Math.min(1, dt * 14);
     if (now - this.lastSend > 33) { this.lastSend = now; this.net.emit('st', { x: +s.x.toFixed(3), y: +s.y.toFixed(3), z: +s.z.toFixed(3), yaw: +this.yaw.toFixed(4), pitch: +this.pitch.toFixed(4), c: (s.crouch || planting) ? 1 : 0, g: s.onGround ? 1 : 0, sc: this.scope, cid: this.cid }); }
     // firing
-    const fireHeld = !this.menuPaused && ((this.mouseL && this.locked && !this.buyOpen && !this.chatOpen) || this.touchFire);
-    const altHeld = !this.menuPaused && ((this.mouseR && this.locked && !this.buyOpen && !this.chatOpen) || this.touchFireAlt);
+    const fireHeld = (this.mouseL && this.locked && !this.buyOpen && !this.chatOpen) || this.touchFire;
+    const altHeld = (this.mouseR && this.locked && !this.buyOpen && !this.chatOpen) || this.touchFireAlt;
     if (fireHeld) this.tryFire(now, false); else if (altHeld && this.activeW()?.melee) this.tryFire(now, true); else { this.trigger = false; this.altTrigger = false; this.dry = false; if (this.c4Held) { this.c4Held = false; this.net.emit('unuse'); } }
     if (this.reloadUntil && now >= this.reloadUntil) { this.reloadUntil = 0; const it = this.activeItem(); if (it && w && w.mag) { const take = Math.min(w.mag - it.mag, it.res); it.mag += take; it.res -= take; } }
     const recover = now - this.lastShotT > 120 ? 9 : 1.5; this.punchP *= Math.exp(-dt * recover); this.punchY *= Math.exp(-dt * recover);
@@ -404,11 +400,11 @@ export class Game {
       let k = this.you.gk && g[this.you.gk] > 0 ? this.you.gk : have[0];
       if (this.you.a === 4) { if (have.length < 2) return; k = have[(have.indexOf(k) + 1) % have.length]; } else this.lastSlot = this.you.a;
       this.you.a = 4; this.you.gk = k; this.pendingSwitch = performance.now(); this.net.emit('sw', { slot: 4, k });
-      this.drawEnd = performance.now() + 500; this.scope = 0; this.reloadUntil = 0; this.shotsFired = 0; this.sound.draw(); return;
+      this.drawEnd = performance.now() + 500; this.scope = 0; this.reloadUntil = 0; this.shotsFired = 0; this.sound.click(0.2, 1200); return;
     }
     if (slot === 5 ? !this.you.b : !this.you.w[slot]) return; if (this.you.a === slot) return;
     this.lastSlot = this.you.a; this.you.a = slot; this.pendingSwitch = performance.now(); this.net.emit('sw', { slot });
-    const w = WEAPONS[slot === 5 ? 'c4' : this.you.w[slot].k]; this.drawEnd = performance.now() + (w.draw || 0.4) * 1000; this.scope = 0; this.reloadUntil = 0; this.shotsFired = 0; this.sound.draw();
+    const w = WEAPONS[slot === 5 ? 'c4' : this.you.w[slot].k]; this.drawEnd = performance.now() + (w.draw || 0.4) * 1000; this.scope = 0; this.reloadUntil = 0; this.shotsFired = 0; this.sound.click(0.2, 1200);
   }
   cycleSlot(dir) { if (!this.you) return; const g = this.you.g || {}; const order = [1, 2, 3, 4, 5].filter((s) => (s === 5 ? this.you.b : s === 4 ? NADES.some((n) => g[n] > 0) : this.you.w[s])); const i = order.indexOf(this.you.a); this.switchSlot(order[(i + dir + order.length) % order.length]); }
   toggleScope() { const w = this.activeW(); if (!w || !w.scope || this.reloadUntil || !this.alive) { this.scope = 0; return; } this.scope = (this.scope + 1) % (w.scope.length + 1); this.sound.click(0.15, 3000); }
@@ -561,9 +557,8 @@ export class Game {
     this.hud.drawRadar(me, this.alive ? this.yaw : (this.remotes.get(this.specId)?.yaw ?? 0), blips, bomb);
   }
   buyTimeLeft() { if (this.phase === 'warmup') return 'WARMUP'; const end = this.phase === 'freeze' ? this.phaseEnd + ROUND.buy * 1000 : this.liveStart + ROUND.buy * 1000; return fmt((end - this.serverNow()) / 1000) + ' left'; }
-  renderBuy() { if (!this.you) return; this.hud._rerenderBuy = () => this.renderBuy(); this.hud.buyMenu(true, this.you, this.team, this.buyTimeLeft(), (k) => this.buy(k), () => this.toggleBuy(false), (k) => this.sell(k)); }
+  renderBuy() { if (!this.you) return; this.hud._rerenderBuy = () => this.renderBuy(); this.hud.buyMenu(true, this.you, this.team, this.buyTimeLeft(), (k) => this.buy(k), () => this.toggleBuy(false)); }
   buy(k) { this.sound.ui(1100); this.net.emit('buy', { item: k }, (r) => { if (!r || !r.ok) { this.hud.toast(r && r.error ? r.error : 'Cannot buy'); this.sound.ui(300); } else this.sound.money(); }); }
-  sell(k) { this.sound.ui(800); this.net.emit('sell', { item: k }, (r) => { if (!r || !r.ok) { this.hud.toast(r && r.error ? r.error : 'Cannot sell'); this.sound.ui(300); } else { this.sound.money(); this.hud.toast(`Sold +$${r.price}`); } }); }
   toggleBuy(v = !this.buyOpen) {
     if (v && !this.canBuy()) { this.hud.toast(this.alive ? 'You are not in a buy zone / buy time is over' : 'You are dead'); return; }
     this.buyOpen = v; if (v) { document.exitPointerLock?.(); this.renderBuy(); } else { this.hud.buyMenu(false); this.lock(); }
@@ -621,10 +616,7 @@ export class Game {
   // ---------------- frame ----------------
   update(dt) {
     if (!this.inRoom) return;
-    // The menu pause is only a UI pause: this is an online game, so the world keeps running. The local player
-    // just stops receiving input (canMove/fire are gated on menuPaused), gravity still lands a jump, and the
-    // server keeps getting our state, so everyone else sees us fall/stand normally instead of frozen mid-air.
-    const now = performance.now(), snow = this.serverNow();
+    if (this.menuPaused) { this.updateCamera(0, performance.now()); this.updateHUD(performance.now()); return; } const now = performance.now(), snow = this.serverNow();
     if (this.alive) this.updateLocal(dt, now); else if (this.mouseL && this.touchFire) this.specNext(1);
     this.updateRemotes(dt, snow); this.updateNades(dt); this.updateCamera(dt, now); this.updateViewModel(dt, now); this.updateEffects(dt);
     const tw = this.activeW(), tf = $('t-fire'), tf2 = $('t-fire2');
