@@ -8,3 +8,6 @@
 - 3D rendering is a preview generated from the game's shared map definitions. This first iteration approximates areas as volumes; ramps and detailed prop geometry still need dedicated editable primitives for a full WOW-style editor.
 
 - **بارگذاری JSON مپ (CS2):** خروجی `tools/map2json.js` (دو فایل `.json` + `.bin`، و تکسچرها در صورت وجود) را هم‌زمان با Ctrl+کلیک انتخاب کن. مپ فقط برای مشاهده/پیش‌نمایش در نمای سه‌بعدی ادیتور است؛ هنوز وارد بازی قابل‌بازی (برخورد، اسپاون، بات‌ها) نمی‌شود.
+
+- **ورود JSON (نقشه‌ی قابل‌بازی):** خروجی `tools/gltf2game.cjs` (فیلد `grid`) را وارد می‌کند؛ پیش‌نمایش ۲بعدی از روی ارتفاع واقعی خانه‌ها کشیده می‌شود، نمای ۳بعدی با `buildWorld` ساخته می‌شود و دکمه‌ی «بررسی نقشه» اسپاون‌ها و دسترسی T→CT/سایت‌ها را چک می‌کند. برای نقشه‌های `grid` ناحیه‌های `areas` فقط جنس کف را تعیین می‌کنند و قابل‌جابجایی نیستند؛ اسپاون‌ها، سایت‌ها و جعبه‌ها قابل ویرایش‌اند.
+- **ذخیره:** فقط نقشه‌های جدید/تغییرکرده فرستاده می‌شوند و هر نقشه‌ی سفارشی زیر کلید جدا (`cm:<id>`) ذخیره می‌شود.

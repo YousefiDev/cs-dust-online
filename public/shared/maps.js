@@ -336,7 +336,8 @@ export function buildMap(def) {
   };
   // def.grid (tools/gltf2game.cjs): per-cell floor/ceiling decoded from RLE int16 (cm). areas then only paint the floor material.
   if (def.grid) {
-    const dec = (b64) => { const by = typeof Buffer !== 'undefined' ? Uint8Array.from(Buffer.from(b64, 'base64')) : Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)); const v = new Int16Array(by.buffer, by.byteOffset, by.length >> 1); const out = new Int16Array(N); let k = 0; for (let i = 0; i + 1 < v.length && k < N; i += 2) for (let c = 0; c < v[i + 1] && k < N; c++) out[k++] = v[i]; return out; };
+    const dec = (b64) => { const by = typeof Buffer !== 'undefined' ? Uint8Array.from(Buffer.from(b64, 'base64')) : Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)); const v = new Int16Array(by.buffer, by.byteOffset, by.length >> 1); const out = new Int16Array(N); let k = 0; for (let i = 0; i + 1 < v.length && k < N; i += 2) for (let c = 0; c < v[i + 1] && k < N; c++) out[k++] = v[i]; if (k < N) throw new Error('def.grid data is truncated'); return out; };
+    if (def.grid.w !== W || def.grid.h !== H) throw new Error('def.grid size does not match def.size');
     const hv = dec(def.grid.hr), cv = dec(def.grid.cr);
     for (let i = 0; i < N; i++) { if (hv[i] !== 32767) { heights[i] = floor[i] = hv[i] / 100; mat[i] = 1; } if (cv[i] !== 32767) ceil[i] = cv[i] / 100; }
   }

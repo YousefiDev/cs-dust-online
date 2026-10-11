@@ -62,8 +62,10 @@ export class GameServer {
   async boot(env) {
     try {
       const st = this.state.storage;
-      const [custom, legacy, split] = await Promise.all([st.get('customMaps'), st.get('data'), st.list({ prefix: 'd:' })]);
-      this.customMaps = custom || {};
+      const [custom, legacy, split, cmKeys] = await Promise.all([st.get('customMaps'), st.get('data'), st.list({ prefix: 'd:' }), st.list({ prefix: 'cm:' })]);
+      // Custom maps live under one key each (cm:<id>) so a big grid map never hits the per-value storage limit; the old single 'customMaps' key is still read.
+      this.customMaps = { ...(custom || {}) };
+      for (const [k, v] of cmKeys) this.customMaps[k.slice(3)] = v;
       this.applyCustomMaps();
       let data = null;
       if (split.size) { data = {}; for (const [k, v] of split) { data[k.slice(2)] = v; this.lastSaved.set(k.slice(2), JSON.stringify(v)); } }
@@ -143,9 +145,17 @@ export class GameServer {
       const clean = {};
       for (const [id, def] of Object.entries(body.maps)) {
         if (!/^[a-z0-9_-]{2,32}$/.test(id) || !def || typeof def !== 'object' || def.id !== id || !Array.isArray(def.size) || !Array.isArray(def.areas) || !Array.isArray(def.crates)) return Response.json({ ok:false, error:'invalid_map:' + id }, { status:400, headers });
+        if (def.grid !== undefined) { const g = def.grid, [W, H] = def.size; if (!g || typeof g.hr !== 'string' || typeof g.cr !== 'string' || g.w !== W || g.h !== H) return Response.json({ ok:false, error:'invalid_grid:' + id }, { status:400, headers }); }
+        if (JSON.stringify(def).length > 1900000) return Response.json({ ok:false, error:'map_too_large:' + id }, { status:413, headers });
         clean[id] = def;
       }
-      this.customMaps = clean; await this.state.storage.put('customMaps', clean); this.applyCustomMaps();
+      try {
+        const st = this.state.storage, old = [...(await st.list({ prefix: 'cm:' })).keys()];
+        for (const [id, def] of Object.entries(clean)) await st.put('cm:' + id, def);
+        for (const k of old) if (!(k.slice(3) in clean)) await st.delete(k);
+        await st.delete('customMaps');
+      } catch (e) { return Response.json({ ok:false, error:'storage_failed: ' + (e && e.message) }, { status:500, headers }); }
+      this.customMaps = clean; this.applyCustomMaps();
       this.broadcastEditor({ type:'maps-updated', maps: clean });
       return Response.json({ ok:true, count:Object.keys(clean).length }, { headers });
     }
