@@ -1,7 +1,17 @@
-const H={"content-type":"application/json; charset=utf-8","cache-control":"no-store"};
-export async function onRequestGet({env}){
- const {GITHUB_TOKEN:t,GITHUB_OWNER:o,GITHUB_REPO:r,GITHUB_BRANCH:b="main"}=env;if(!t||!o||!r)return Response.json({ok:false,error:"github_binding_missing",message:"GitHub secrets are not configured"},{status:503,headers:H});
- const headers={authorization:`Bearer ${t}`,accept:"application/vnd.github+json","x-github-api-version":"2022-11-28"};
- try{const tr=await fetch(`https://api.github.com/repos/${o}/${r}/git/trees/${encodeURIComponent(b)}?recursive=1`,{headers});if(!tr.ok)throw new Error(`GitHub tree API ${tr.status}`);const tree=await tr.json();const paths=(tree.tree||[]).filter(x=>x.type==="blob"&&/^public\/maps\/custom\/custom-[a-z0-9-]+\/metadata\.json$/.test(x.path)).slice(-100);const maps={};for(const p of paths){const x=await fetch(`https://api.github.com/repos/${o}/${r}/contents/${p.path.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(b)}`,{headers});if(!x.ok)continue;const d=await x.json();try{const raw=Uint8Array.from(atob(d.content.replace(/\s/g,"")),c=>c.charCodeAt(0));const def=JSON.parse(new TextDecoder().decode(raw));if(def?.id)maps[def.id]=def}catch{}}return Response.json(maps,{headers:H})}catch(e){return Response.json({ok:false,error:"github_read_failed",message:String(e.message||e)},{status:502,headers:H})}
+const HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
+export async function onRequestGet({ env }) {
+  if (!env.MAP_ASSETS) return Response.json({ ok:false, error:"r2_binding_missing", message:"اتصال R2 با نام MAP_ASSETS تنظیم نشده است." }, { status:503, headers:HEADERS });
+  const maps = {}; let cursor;
+  do {
+    const page = await env.MAP_ASSETS.list({ prefix:"custom-maps/", cursor, limit:1000 });
+    for (const item of page.objects || []) {
+      if (!item.key.endsWith("/metadata.json")) continue;
+      const object = await env.MAP_ASSETS.get(item.key); if (!object) continue;
+      try { const def = await object.json(); if (def && typeof def.id === "string") maps[def.id] = def; }
+      catch (error) { console.error("invalid map metadata", item.key, error); }
+    }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  return Response.json(maps, { headers:HEADERS });
 }
-export async function onRequestOptions(){return new Response(null,{status:204,headers:{...H,"access-control-allow-methods":"GET,OPTIONS","access-control-allow-headers":"content-type"}})}
+export async function onRequestOptions() { return new Response(null,{status:204,headers:{...HEADERS,"access-control-allow-methods":"GET,OPTIONS","access-control-allow-headers":"content-type"}}); }
